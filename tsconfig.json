@@ -3,6 +3,9 @@
         "allowSyntheticDefaultImports": true,
         "composite": true,
         "esModuleInterop": true,
+        "ignoreDeprecations": "6.0",
+        "module": "CommonJS",
+        "moduleResolution": "node",
         "strict": true,
         "target": "ES2021",
         "paths": {

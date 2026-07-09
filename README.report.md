@@ -38,6 +38,8 @@ The **Network Report** feature generates detailed HTML reports with visualizatio
   - [2. Clean Up Old Reports](#2-clean-up-old-reports)
   - [3. Generate Reports Only for Long-Running Tests](#3-generate-reports-only-for-long-running-tests)
 - [Troubleshooting](#troubleshooting)
+  - [Common Issues](#common-issues)
+- [Example Report](#example-report)
 
 ## Quick Start
 
@@ -371,12 +373,30 @@ test.afterEach(async ({ interceptor }, testInfo) => {
 
 ## Troubleshooting
 
+### Common Issues
+
 **Report not generated:**
-- ensure `outputDir` exists or can be created and you have write permissions.
-- make sure `playwright-interceptor` is imported and the `interceptor` fixture is used.
+- Ensure `outputDir` exists or can be created
+- Verify you have write permissions to the output directory
+- Check that Cypress Interceptor is properly imported
 
 **Empty reports:**
-- verify that network requests actually occurred during the test and that you awaited them (e.g. with `waitUntilRequestIsDone`) before generating the report.
+- Make sure Cypress Interceptor is capturing requests
+- Verify that network requests occur during your test execution
 
-**Wrong file name:**
-- when `fileName` is not provided, the name is derived from `titlePath`. Pass `titlePath: test.info().titlePath` to `createNetworkReport`.
+**Node.js context errors:**
+- `createNetworkReportFromFile` and `createNetworkReportFromFolder` must be called from Node.js context (Cypress tasks, not test code)
+
+**Performance threshold not working:**
+- Ensure `highDuration` is set as a number (in milliseconds)
+- Check that the threshold value is reasonable for your application's performance characteristics
+
+## Example Report
+
+You can find a sample of a generated report [here](https://martintichovsky.github.io/playwright-interceptor/report-example/report.html).
+
+The sample report demonstrates all the features including:
+- Interactive performance charts with configurable thresholds
+- Detailed request/response tables
+- Performance statistics
+- Professional styling and responsive design

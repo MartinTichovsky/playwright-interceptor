@@ -64,3 +64,36 @@ test.describe("Delay Request", () => {
         }
     );
 });
+
+test.describe("Delay Request - manage delays", () => {
+    // the static page fires two fetch requests on load
+    const staticUrl = "/public/index.html";
+
+    test("removeDelay removes a registered delay by id", ({ interceptor }) => {
+        const id = interceptor.delayRequest({ resourceType: "fetch" }, 1000);
+
+        // removing an existing id returns true; removing it again or an unknown id returns false
+        expect(interceptor.removeDelay(id)).toBe(true);
+        expect(interceptor.removeDelay(id)).toBe(false);
+        expect(interceptor.removeDelay(9999)).toBe(false);
+    });
+
+    test("delays the matching requests the configured number of times", async ({
+        page,
+        interceptor
+    }) => {
+        const delay = 200;
+
+        // `times: 2` -> the first matching request decrements the counter, the second removes the
+        // entry. Both requests are therefore delayed.
+        interceptor.delayRequest({ resourceType: "fetch" }, delay, { times: 2 });
+
+        await page.goto(staticUrl);
+
+        await interceptor.waitUntilRequestIsDone();
+
+        const delayed = interceptor.getStats().filter((entry) => entry.requestDelay === delay);
+
+        expect(delayed.length).toBeGreaterThanOrEqual(2);
+    });
+});

@@ -30,7 +30,9 @@ import * as fs from "fs";
 import * as path from "path";
 import {
     CallStack,
+    createNetworkReport,
     createNetworkReportFromFile,
+    createNetworkReportFromFolder,
     expect,
     generateReport,
     ReportClassName,
@@ -322,6 +324,129 @@ test.describe("Report", () => {
             generateReport([], outputFilePath);
 
             expect(fs.existsSync(outputFilePath)).toBe(true);
+        });
+    });
+
+    test.describe("createNetworkReport", () => {
+        test("Should create a report from an interceptor instance", async ({
+            page,
+            interceptor
+        }) => {
+            // the static page fires two fetch requests on load, which the interceptor logs
+            await page.goto("/public/index.html");
+
+            await interceptor.waitUntilRequestIsDone();
+
+            expect(interceptor.getStats().length).toBeGreaterThan(0);
+
+            const outputFilePath = createNetworkReport(interceptor, {
+                fileName: "from-interceptor",
+                outputDir: test.info().outputDir,
+                titlePath: test.info().titlePath
+            });
+
+            expect(outputFilePath.endsWith("from-interceptor.html")).toBe(true);
+            expect(fs.existsSync(outputFilePath)).toBe(true);
+            expect(fs.readFileSync(outputFilePath, "utf8").length).toBeGreaterThan(0);
+        });
+    });
+
+    test.describe("createNetworkReportFromFolder", () => {
+        test("Should generate reports for the valid files and skip the invalid ones", () => {
+            const statsDir = path.join(test.info().outputDir, "stats-folder");
+            const reportDir = path.join(test.info().outputDir, "reports");
+
+            fs.mkdirSync(statsDir, { recursive: true });
+
+            // a valid stats file -> produces a report
+            fs.writeFileSync(
+                path.join(statsDir, "good.stats.json"),
+                JSON.stringify([statsJsonEntry("http://localhost:3000/api/test1", 200)]),
+                "utf8"
+            );
+            // an invalid stats file -> throws while parsing and is swallowed by the folder helper
+            fs.writeFileSync(path.join(statsDir, "bad.stats.json"), "not valid json", "utf8");
+
+            createNetworkReportFromFolder(statsDir, { outputDir: reportDir });
+
+            expect(fs.existsSync(path.join(reportDir, "good.html"))).toBe(true);
+            expect(fs.existsSync(path.join(reportDir, "bad.html"))).toBe(false);
+        });
+    });
+
+    test.describe("generateReport - body inclusion", () => {
+        const longBody = "x".repeat(1500);
+        const shortBody = "short body";
+
+        const bodyEntry = (
+            url: URL,
+            requestBody: string,
+            responseBody: string,
+            sequenceId: number
+        ): CallStack => {
+            const entry = callStackEntry(url, 1000, sequenceId);
+
+            entry.request.body = requestBody;
+            entry.response!.body = responseBody;
+
+            return entry;
+        };
+
+        const generate = (entries: CallStack[], options: Parameters<typeof generateReport>[2]) => {
+            const outputFilePath = path.join(test.info().outputDir, "body-report.html");
+
+            generateReport(entries, outputFilePath, options);
+
+            return fs.readFileSync(outputFilePath, "utf8");
+        };
+
+        test("includes the full body when the option is true", () => {
+            const html = generate(
+                [bodyEntry(new URL("http://localhost:3000/a"), longBody, longBody, 1)],
+                {
+                    includeRequestBody: true,
+                    includeResponseBody: true
+                }
+            );
+
+            // the full (untruncated) body is present
+            expect(html.includes(longBody)).toBe(true);
+        });
+
+        test("includes the full body when the option function returns true", () => {
+            const html = generate(
+                [bodyEntry(new URL("http://localhost:3000/b"), longBody, "", 1)],
+                {
+                    includeRequestBody: () => true
+                }
+            );
+
+            expect(html.includes(longBody)).toBe(true);
+        });
+
+        test("truncates a long body and keeps a short body when the option function returns false", () => {
+            const html = generate(
+                [
+                    bodyEntry(new URL("http://localhost:3000/c-long"), longBody, "", 1),
+                    bodyEntry(new URL("http://localhost:3000/c-short"), shortBody, "", 2)
+                ],
+                { includeRequestBody: () => false }
+            );
+
+            // the long body is truncated to 1000 chars + "..."; the short body is kept as-is
+            expect(html.includes(longBody)).toBe(false);
+            expect(html.includes(longBody.slice(0, 1000))).toBe(true);
+            expect(html.includes(shortBody)).toBe(true);
+        });
+
+        test("truncates a long body by default when no option is provided", () => {
+            const html = generate(
+                [bodyEntry(new URL("http://localhost:3000/d"), longBody, "", 1)],
+                {}
+            );
+
+            expect(html.includes(longBody)).toBe(false);
+            expect(html.includes(longBody.slice(0, 1000))).toBe(true);
         });
     });
 });

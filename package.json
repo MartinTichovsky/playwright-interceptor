@@ -37,7 +37,7 @@
         "pw:install": "npm run pw:install -w playwright-interceptor-tests-latest",
         "server": "npm run start -w playwright-interceptor-server",
         "test": "npm run test -w playwright-interceptor-tests-latest",
-        "test:coverage": "npm run build:coverage -w playwright-interceptor && c8 playwright test --config packages/playwright-latest/playwright.config.ts --tsconfig packages/playwright-latest/tsconfig.coverage.json --workers=1",
+        "test:coverage": "npm run build:coverage -w playwright-interceptor && c8 playwright test --config packages/playwright-latest/playwright.config.ts --tsconfig packages/playwright-latest/tsconfig.coverage.json --workers=2",
         "tsc": "npm run tsc --workspaces"
     },
     "workspaces": [

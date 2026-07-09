@@ -1,43 +1,4 @@
-/**
- * Ported from `packages/share/e2e/console.cy.ts`.
- *
- * Verifies WatchTheConsole: recording console output + uncaught JavaScript errors, writing the
- * captured log to a file (auto-generated name, strict name, max-length cutting, type/filter
- * selection) and the various JavaScript-object serialization cases.
- *
- * Adaptations from the Cypress suite:
- * - `cy.watchTheConsole()` -> the `watchTheConsole` fixture (created per test from
- *   `testInfo.titlePath`, started before the test, destroyed after).
- * - `cy.watchTheConsoleOptions(o)` -> `watchTheConsole.setOptions(o)`.
- * - `cy.writeConsoleLogToFile(dir, o)` -> `watchTheConsole.writeLogToFile(dir, o)` (writes the JSON
- *   synchronously via Node `fs`, so there is no `.then(...)`).
- * - `cy.readFile(path)` -> `JSON.parse(fs.readFileSync(path, "utf8"))`;
- *   `cy.task("doesFileExist", p)` -> `fs.existsSync(p)`; `cy.task("clearLogs", ...)` -> `fs.rmSync`.
- * - Console output is produced with `page.evaluate(() => { console.log(...); ... })` instead of
- *   `cy.window().then(win => win.console.log(...))`.
- * - Because Playwright resolves console arguments asynchronously (`page.on("console")` +
- *   `JSHandle.jsonValue()`), `waitForRecords` polls `watchTheConsole.records.length` and then
- *   flushes the internal queue before assertions run.
- * - The Cypress suite installs `Cypress.on("uncaught:exception", () => false)` because the static
- *   `public/index.html` throws an intentional error. Playwright does not fail a test on uncaught
- *   page errors, so that handler has no equivalent; the error is captured as `ConsoleLogType.Error`.
- *
- * `cloneConsoleArguments` no-op:
- * - In Cypress the console arguments are live browser references, so `cloneConsoleArguments` deep
- *   clones them (and strips circular refs). In Playwright the arguments arrive as already-serialized
- *   JSON values (Playwright serializes them in the browser before they reach Node), so the option is
- *   a no-op. The "with clone" / "without clone" tests therefore assert the *same* serialized values
- *   in Playwright; only the entry counts differ (the "with clone" case additionally logs `window`).
- *
- * Values that don't survive Playwright's `jsonValue()` serialization differ from Cypress and are
- * adapted (documented inline where they occur):
- * - functions and `undefined` object values are dropped from the serialized object.
- * - `Symbol`, `WeakMap`, `WeakSet` are dropped / become `{}`.
- * - DOM nodes and `window` become an opaque string (e.g. `"ref: <Node>"` / `"ref: <Window>"`).
- * - `Date` becomes `{}` (an empty object), so the round-trip `new Date(value)` assertion is dropped.
- * - Circular references are collapsed to the string `"[Circular]"` (matches the Cypress output).
- */
-
+import type { Page } from "@playwright/test";
 import * as fs from "fs";
 import {
     ConsoleLog,
@@ -52,61 +13,92 @@ import { generateUrl } from "playwright-interceptor-server/src/utils";
 
 import { getWorkerOutputDir } from "../src/constants";
 
+/**
+ * Ported from `packages/share/e2e/console.cy.ts`.
+ *
+ * Command / task mapping (Cypress -> Playwright):
+ *   cy.visit(url)                         -> page.goto(url)
+ *   cy.window().then(win => win.console.*)-> page.evaluate(() => window.console.*) (runs in-browser)
+ *   cy.writeConsoleLogToFile(dir, opts)   -> watchTheConsole.writeLogToFile(dir, opts)
+ *   cy.watchTheConsole()                  -> the `watchTheConsole` fixture (its getters)
+ *   cy.watchTheConsoleOptions(opts)       -> watchTheConsole.setOptions(opts)
+ *   cy.task("clearLogs", [dirs])          -> fs.rmSync(dir, { force: true, recursive: true })
+ *   cy.task("doesFileExist", file)        -> fs.existsSync(file)
+ *   cy.readFile(file)                     -> JSON.parse(fs.readFileSync(file, "utf8"))
+ *   Cypress.spec.name output path         -> getWorkerOutputDir("console.spec.ts")
+ *   Cypress.on("uncaught:exception")      -> not needed; watchTheConsole records `pageerror` and
+ *                                            Playwright does not fail the test on page errors.
+ *
+ * Adaptations (behavioural differences between the two interceptors):
+ * - In Cypress the spec runs in the browser, so the console arguments are the live JS objects. In
+ *   Playwright the spec runs in Node, so the arguments are constructed and logged inside
+ *   `page.evaluate` and then serialized back to Node via `JSHandle.jsonValue()`.
+ * - `cloneConsoleArguments` is a **no-op** in Playwright (kept for API parity). Because
+ *   `jsonValue()` serializes like `JSON.stringify`, non-serializable values behave the same
+ *   regardless of the flag: functions and symbols are dropped from objects, `WeakMap`/`WeakSet`/DOM
+ *   nodes serialize to `{}`, `Date` becomes an ISO string, `RegExp` becomes `{}`, and circular
+ *   references are collapsed to `"[Circular]"`. The "with clone" expectations from the Cypress suite
+ *   (`String(fn)`, `"Symbol"`, `"HTMLDivElement"`, `"ReactElement"`, `"Window"`, ...) therefore do
+ *   not apply; the assertions below reflect Playwright's `jsonValue()` output.
+ */
+
 type LogQueue = [ConsoleLogType, unknown[]][];
 
 const invalidDate = new Date("").toString();
-const staticUrl = generateUrl("/public/index.html");
-// Worker-scoped so the `beforeAll` cleanups below never race another parallel worker. The
-// `outputDir1/2/3` variants derived from this inherit the same worker isolation.
+const staticUrl = generateUrl("public/index.html");
+// Worker-scoped so the per-describe cleanup below never races another parallel worker.
 const outputDir = getWorkerOutputDir("console.spec.ts");
 
-/**
- * Reproduce the exact file path `writeLogToFile` produces for the current test. It uses the same
- * `getFilePath` helper and the same `titlePath` the `watchTheConsole` fixture is initialised with.
- */
-const createOutputFileName = (
-    titlePath: string[],
-    fileName?: string,
-    maxLength?: FileNameMaxLength
-) => getFilePath({ fileName, maxLength, outputDir, titlePath, type: "console" });
-
-/**
- * Produce the given console output inside the browser. The queue only carries JSON-serializable
- * arguments (strings / plain objects), so it can cross the `page.evaluate` boundary. Non-serializable
- * values (functions, DOM nodes, ...) are constructed inside dedicated `page.evaluate` blocks.
- */
-const createConsoleLog = async (page: import("@playwright/test").Page, logQueue: LogQueue) => {
-    await page.evaluate((queue) => {
-        for (const [type, args] of queue) {
-            switch (type) {
-                case "console.log":
-                    console.log(...args);
-                    break;
-                case "console.info":
-                    console.info(...args);
-                    break;
-                case "console.warn":
-                    console.warn(...args);
-                    break;
-                case "console.error":
-                    console.error(...args);
-                    break;
+/** Run the console log queue inside the browser so `watchTheConsole` records real console output. */
+const createConsoleLog = (page: Page, logQueue: LogQueue) =>
+    page.evaluate(
+        ({ queue, types }) => {
+            for (const [type, args] of queue) {
+                switch (type) {
+                    case types.ConsoleLog:
+                        window.console.log(...args);
+                        break;
+                    case types.ConsoleInfo:
+                        window.console.info(...args);
+                        break;
+                    case types.ConsoleWarn:
+                        window.console.warn(...args);
+                        break;
+                    case types.ConsoleError:
+                        window.console.error(...args);
+                        break;
+                }
             }
-        }
-    }, logQueue);
-};
+        },
+        { queue: logQueue, types: ConsoleLogType }
+    );
+
+const createOutputFileName = (
+    dir: string,
+    fileName: string | undefined = undefined,
+    maxLength?: FileNameMaxLength
+) =>
+    getFilePath({
+        fileName,
+        maxLength,
+        outputDir: dir,
+        titlePath: test.info().titlePath,
+        type: "console"
+    });
+
+const readLog = (outputFileName: string) =>
+    JSON.parse(fs.readFileSync(outputFileName, "utf8")) as ConsoleLog[];
 
 /**
- * Wait until all expected console entries have been recorded, then settle the async queue.
+ * The `page.on("console")` / `pageerror` events are asynchronous, so wait until the expected number
+ * of records have been captured and then flush the internal processing queue before asserting.
  */
-const waitForRecords = async (watchTheConsole: WatchTheConsole, expected: number) => {
-    await expect.poll(() => watchTheConsole.records.length, { timeout: 15000 }).toBe(expected);
+const waitForRecords = async (watchTheConsole: WatchTheConsole, length: number) => {
+    await expect
+        .poll(() => watchTheConsole.records.length, { timeout: 10000 })
+        .toBeGreaterThanOrEqual(length);
     await watchTheConsole.flush();
 };
-
-test.beforeEach(() => {
-    test.setTimeout(60000);
-});
 
 test.describe("Custom log", () => {
     test.beforeAll(() => {
@@ -123,12 +115,11 @@ test.describe("Custom log", () => {
 
         await createConsoleLog(page, logQueue);
 
-        // logQueue + 1 uncaught error thrown by the static page
         await waitForRecords(watchTheConsole, logQueue.length + 1);
 
         watchTheConsole.writeLogToFile(outputDir);
 
-        const outputFileName = createOutputFileName(test.info().titlePath);
+        const outputFileName = createOutputFileName(outputDir);
 
         expect(fs.existsSync(outputFileName)).toBe(true);
 
@@ -137,17 +128,21 @@ test.describe("Custom log", () => {
             expect(log[0].type).toEqual(ConsoleLogType.Error);
             expect(new Date(log[0].dateTime).toString()).not.toEqual(invalidDate);
             expect(typeof log[0].currentTime).toBe("string");
-            expect(log[0].currentTime.length).toBeGreaterThan(0);
+            expect(log[0].currentTime).not.toEqual("");
             expect(typeof log[0].args[0]).toBe("string");
             expect(log[1].type).toEqual(ConsoleLogType.ConsoleLog);
             expect(new Date(log[1].dateTime).toString()).not.toEqual(invalidDate);
+            expect(typeof log[1].currentTime).toBe("string");
+            expect(log[1].currentTime).not.toEqual("");
             expect(log[1].args).toEqual(logQueue[0][1]);
             expect(log[2].type).toEqual(ConsoleLogType.ConsoleInfo);
             expect(new Date(log[2].dateTime).toString()).not.toEqual(invalidDate);
+            expect(typeof log[2].currentTime).toBe("string");
+            expect(log[2].currentTime).not.toEqual("");
             expect(log[2].args).toEqual(logQueue[1][1]);
         };
 
-        checkTheLog(JSON.parse(fs.readFileSync(outputFileName, "utf8")) as ConsoleLog[]);
+        checkTheLog(readLog(outputFileName));
 
         checkTheLog(watchTheConsole.records);
         expect(
@@ -173,18 +168,27 @@ test.describe("Custom log", () => {
 
         watchTheConsole.writeLogToFile(outputDir);
 
-        const outputFileName = createOutputFileName(test.info().titlePath);
+        const outputFileName = createOutputFileName(outputDir);
 
         expect(fs.existsSync(outputFileName)).toBe(true);
 
-        const log = JSON.parse(fs.readFileSync(outputFileName, "utf8")) as ConsoleLog[];
+        const log = readLog(outputFileName);
 
         expect(log.length).toEqual(logQueue.length + 1);
         expect(log[0].type).toEqual(ConsoleLogType.Error);
+        expect(new Date(log[0].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[0].currentTime).toBe("string");
+        expect(log[0].currentTime).not.toEqual("");
         expect(typeof log[0].args[0]).toBe("string");
         expect(log[1].type).toEqual(ConsoleLogType.ConsoleWarn);
+        expect(new Date(log[1].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[1].currentTime).toBe("string");
+        expect(log[1].currentTime).not.toEqual("");
         expect(log[1].args).toEqual(logQueue[0][1]);
         expect(log[2].type).toEqual(ConsoleLogType.ConsoleError);
+        expect(new Date(log[2].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[2].currentTime).toBe("string");
+        expect(log[2].currentTime).not.toEqual("");
         expect(log[2].args).toEqual(logQueue[1][1]);
     });
 
@@ -205,20 +209,32 @@ test.describe("Custom log", () => {
 
         watchTheConsole.writeLogToFile(outputDir, { fileName });
 
-        const outputFileName = createOutputFileName(test.info().titlePath, fileName);
+        const outputFileName = createOutputFileName(outputDir, fileName);
 
         expect(fs.existsSync(outputFileName)).toBe(true);
 
-        const log = JSON.parse(fs.readFileSync(outputFileName, "utf8")) as ConsoleLog[];
+        const log = readLog(outputFileName);
 
         expect(log.length).toEqual(logQueue.length + 1);
         expect(log[0].type).toEqual(ConsoleLogType.Error);
+        expect(new Date(log[0].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[0].currentTime).toBe("string");
+        expect(log[0].currentTime).not.toEqual("");
         expect(typeof log[0].args[0]).toBe("string");
         expect(log[1].type).toEqual(ConsoleLogType.ConsoleError);
+        expect(new Date(log[1].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[1].currentTime).toBe("string");
+        expect(log[1].currentTime).not.toEqual("");
         expect(log[1].args).toEqual(logQueue[0][1]);
         expect(log[2].type).toEqual(ConsoleLogType.ConsoleInfo);
+        expect(new Date(log[2].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[2].currentTime).toBe("string");
+        expect(log[2].currentTime).not.toEqual("");
         expect(log[2].args).toEqual(logQueue[1][1]);
         expect(log[3].type).toEqual(ConsoleLogType.ConsoleLog);
+        expect(new Date(log[3].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[3].currentTime).toBe("string");
+        expect(log[3].currentTime).not.toEqual("");
         expect(log[3].args).toEqual(logQueue[2][1]);
     });
 
@@ -239,36 +255,32 @@ test.describe("Custom log", () => {
             await waitForRecords(watchTheConsole, logQueue.length + 1);
         });
 
-        test("Should cut the generated name when maxLength is a number", ({ watchTheConsole }) => {
-            const titlePath = test.info().titlePath;
-            const outputFileName = createOutputFileName(titlePath, undefined, maxLengthNumber);
+        test("Should cut the generated name when maxLength is a number", async ({
+            watchTheConsole
+        }) => {
+            const outputFileName = createOutputFileName(outputDir, undefined, maxLengthNumber);
 
-            expect(outputFileName.length).toBeLessThan(createOutputFileName(titlePath).length);
+            expect(outputFileName.length).toBeLessThan(createOutputFileName(outputDir).length);
 
             watchTheConsole.writeLogToFile(outputDir, { maxLength: maxLengthNumber });
 
             expect(fs.existsSync(outputFileName)).toBe(true);
 
-            const log = JSON.parse(fs.readFileSync(outputFileName, "utf8")) as ConsoleLog[];
-
-            expect(log.length).toEqual(logQueue.length + 1);
+            expect(readLog(outputFileName).length).toEqual(logQueue.length + 1);
         });
 
-        test("Should cut the describe and the test name when maxLength is an object", ({
+        test("Should cut the describe and the test name when maxLength is an object", async ({
             watchTheConsole
         }) => {
-            const titlePath = test.info().titlePath;
-            const outputFileName = createOutputFileName(titlePath, undefined, maxLengthObject);
+            const outputFileName = createOutputFileName(outputDir, undefined, maxLengthObject);
 
-            expect(outputFileName.length).toBeLessThan(createOutputFileName(titlePath).length);
+            expect(outputFileName.length).toBeLessThan(createOutputFileName(outputDir).length);
 
             watchTheConsole.writeLogToFile(outputDir, { maxLength: maxLengthObject });
 
             expect(fs.existsSync(outputFileName)).toBe(true);
 
-            const log = JSON.parse(fs.readFileSync(outputFileName, "utf8")) as ConsoleLog[];
-
-            expect(log.length).toEqual(logQueue.length + 1);
+            expect(readLog(outputFileName).length).toEqual(logQueue.length + 1);
         });
     });
 });
@@ -294,33 +306,45 @@ test.describe("Custom types", () => {
         await waitForRecords(watchTheConsole, logQueue.length + 1);
     });
 
-    test("Should create a file with console error types", ({ watchTheConsole }) => {
+    test("Should create a file with console error types", async ({ watchTheConsole }) => {
         watchTheConsole.writeLogToFile(outputDir, { types: [ConsoleLogType.ConsoleError] });
 
-        const outputFileName = createOutputFileName(test.info().titlePath);
+        const outputFileName = createOutputFileName(outputDir);
 
-        const log = JSON.parse(fs.readFileSync(outputFileName, "utf8")) as ConsoleLog[];
+        const log = readLog(outputFileName);
 
         expect(log.length).toEqual(2);
         expect(log[0].type).toEqual(ConsoleLogType.ConsoleError);
+        expect(new Date(log[0].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[0].currentTime).toBe("string");
+        expect(log[0].currentTime).not.toEqual("");
         expect(log[0].args).toEqual(logQueue[1][1]);
         expect(log[1].type).toEqual(ConsoleLogType.ConsoleError);
+        expect(new Date(log[1].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[1].currentTime).toBe("string");
+        expect(log[1].currentTime).not.toEqual("");
         expect(log[1].args).toEqual(logQueue[3][1]);
     });
 
-    test("Should create a file with console info and log types", ({ watchTheConsole }) => {
+    test("Should create a file with console info and log types", async ({ watchTheConsole }) => {
         watchTheConsole.writeLogToFile(outputDir, {
             types: [ConsoleLogType.ConsoleInfo, ConsoleLogType.ConsoleLog]
         });
 
-        const outputFileName = createOutputFileName(test.info().titlePath);
+        const outputFileName = createOutputFileName(outputDir);
 
-        const log = JSON.parse(fs.readFileSync(outputFileName, "utf8")) as ConsoleLog[];
+        const log = readLog(outputFileName);
 
         expect(log.length).toEqual(2);
         expect(log[0].type).toEqual(ConsoleLogType.ConsoleLog);
+        expect(new Date(log[0].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[0].currentTime).toBe("string");
+        expect(log[0].currentTime).not.toEqual("");
         expect(log[0].args).toEqual(logQueue[0][1]);
         expect(log[1].type).toEqual(ConsoleLogType.ConsoleInfo);
+        expect(new Date(log[1].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[1].currentTime).toBe("string");
+        expect(log[1].currentTime).not.toEqual("");
         expect(log[1].args).toEqual(logQueue[2][1]);
     });
 });
@@ -360,33 +384,36 @@ test.describe("Filtering with a string", () => {
         });
         watchTheConsole.writeLogToFile(outputDir3, { filter: () => false });
 
-        const outputFileName1 = createOutputFileName(test.info().titlePath).replace(
-            outputDir,
-            outputDir1
-        );
-        const outputFileName2 = createOutputFileName(test.info().titlePath).replace(
-            outputDir,
-            outputDir2
-        );
-        const outputFileName3 = createOutputFileName(test.info().titlePath).replace(
-            outputDir,
-            outputDir3
-        );
+        const outputFileName1 = createOutputFileName(outputDir1);
+        const outputFileName2 = createOutputFileName(outputDir2);
+        const outputFileName3 = createOutputFileName(outputDir3);
 
-        const log1 = JSON.parse(fs.readFileSync(outputFileName1, "utf8")) as ConsoleLog[];
+        const log1 = readLog(outputFileName1);
 
         expect(log1.length).toEqual(2);
         expect(log1[0].type).toEqual(ConsoleLogType.ConsoleError);
+        expect(new Date(log1[0].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log1[0].currentTime).toBe("string");
+        expect(log1[0].currentTime).not.toEqual("");
         expect(log1[0].args).toEqual(logQueue[1][1]);
         expect(log1[1].type).toEqual(ConsoleLogType.ConsoleError);
+        expect(new Date(log1[1].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log1[1].currentTime).toBe("string");
+        expect(log1[1].currentTime).not.toEqual("");
         expect(log1[1].args).toEqual(logQueue[3][1]);
 
-        const log2 = JSON.parse(fs.readFileSync(outputFileName2, "utf8")) as ConsoleLog[];
+        const log2 = readLog(outputFileName2);
 
         expect(log2.length).toEqual(2);
         expect(log2[0].type).toEqual(ConsoleLogType.ConsoleInfo);
+        expect(new Date(log2[0].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log2[0].currentTime).toBe("string");
+        expect(log2[0].currentTime).not.toEqual("");
         expect(log2[0].args).toEqual(logQueue[2][1]);
         expect(log2[1].type).toEqual(ConsoleLogType.ConsoleInfo);
+        expect(new Date(log2[1].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log2[1].currentTime).toBe("string");
+        expect(log2[1].currentTime).not.toEqual("");
         expect(log2[1].args).toEqual(logQueue[4][1]);
 
         expect(fs.existsSync(outputFileName3)).toBe(false);
@@ -443,70 +470,78 @@ test.describe("Filtering with an object", () => {
             filter: (_type, obj1) => typeof obj1 === "string"
         });
 
-        const outputFileName1 = createOutputFileName(test.info().titlePath).replace(
-            outputDir,
-            outputDir1
-        );
-        const outputFileName2 = createOutputFileName(test.info().titlePath).replace(
-            outputDir,
-            outputDir2
-        );
-        const outputFileName3 = createOutputFileName(test.info().titlePath).replace(
-            outputDir,
-            outputDir3
-        );
+        const outputFileName1 = createOutputFileName(outputDir1);
+        const outputFileName2 = createOutputFileName(outputDir2);
+        const outputFileName3 = createOutputFileName(outputDir3);
 
-        const log1 = JSON.parse(fs.readFileSync(outputFileName1, "utf8")) as ConsoleLog[];
+        const log1 = readLog(outputFileName1);
 
         expect(log1.length).toEqual(3);
         expect(log1[0].type).toEqual(ConsoleLogType.ConsoleInfo);
+        expect(new Date(log1[0].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log1[0].currentTime).toBe("string");
+        expect(log1[0].currentTime).not.toEqual("");
         expect(log1[0].args).toEqual(logQueue[0][1]);
         expect(log1[1].type).toEqual(ConsoleLogType.ConsoleError);
+        expect(new Date(log1[1].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log1[1].currentTime).toBe("string");
+        expect(log1[1].currentTime).not.toEqual("");
         expect(log1[1].args).toEqual(logQueue[1][1]);
         expect(log1[2].type).toEqual(ConsoleLogType.ConsoleLog);
+        expect(new Date(log1[1].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log1[2].currentTime).toBe("string");
+        expect(log1[2].currentTime).not.toEqual("");
         expect(log1[2].args).toEqual(logQueue[2][1]);
 
-        const log2 = JSON.parse(fs.readFileSync(outputFileName2, "utf8")) as ConsoleLog[];
+        const log2 = readLog(outputFileName2);
 
         expect(log2.length).toEqual(2);
         expect(log2[0].type).toEqual(ConsoleLogType.ConsoleInfo);
+        expect(new Date(log2[0].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log2[0].currentTime).toBe("string");
+        expect(log2[0].currentTime).not.toEqual("");
         expect(log2[0].args).toEqual(logQueue[0][1]);
         expect(log2[1].type).toEqual(ConsoleLogType.ConsoleError);
+        expect(new Date(log2[1].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log2[1].currentTime).toBe("string");
+        expect(log2[1].currentTime).not.toEqual("");
         expect(log2[1].args).toEqual(logQueue[3][1]);
 
-        const log3 = JSON.parse(fs.readFileSync(outputFileName3, "utf8")) as ConsoleLog[];
+        const log3 = readLog(outputFileName3);
 
         expect(log3.length).toEqual(2);
         expect(log3[0].type).toEqual(ConsoleLogType.Error);
+        expect(new Date(log3[0].dateTime).toString()).not.toEqual(invalidDate);
         expect(typeof log3[0].args[0]).toBe("string");
+        expect(log3[0].args[0]).not.toEqual("");
+        expect(typeof log3[0].currentTime).toBe("string");
         expect(log3[1].type).toEqual(ConsoleLogType.ConsoleWarn);
+        expect(new Date(log3[1].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log3[1].currentTime).toBe("string");
+        expect(log3[1].currentTime).not.toEqual("");
         expect(log3[1].args).toEqual(logQueue[5][1]);
     });
 });
 
-test.describe("Recursive objects and non-serializable values", () => {
+test.describe("JSON.stringify function or recursive object", () => {
     test.beforeAll(() => {
         fs.rmSync(outputDir, { force: true, recursive: true });
     });
 
-    // In Cypress this describe distinguishes clone vs. no-clone. In Playwright `cloneConsoleArguments`
-    // is a no-op (args are already serialized), so all four permutations produce the same output.
-    // The circular-reference collapsing to "[Circular]" is done by the library and matches Cypress.
-    const runTestCase = async (
-        page: import("@playwright/test").Page,
-        watchTheConsole: WatchTheConsole,
-        prettyOutput: boolean
-    ) => {
-        await page.goto("/");
-
-        await page.evaluate(() => {
+    /**
+     * Build the recursive / non-serializable arguments **inside the browser** and log them. The
+     * Cypress suite created these objects in the (browser) test context; here they must exist in the
+     * page so `watchTheConsole` can serialize them back to Node.
+     */
+    const logSpecialValues = (page: Page) =>
+        page.evaluate(() => {
             const recursiveObject: Record<string, unknown> = {};
 
             recursiveObject.something = 123;
             recursiveObject.a = true;
             recursiveObject.arr = [recursiveObject];
 
-            const recursiveArray: unknown[] = [];
+            const recursiveArray: Array<unknown> = [];
 
             recursiveArray[0] = [recursiveArray];
 
@@ -514,9 +549,8 @@ test.describe("Recursive objects and non-serializable values", () => {
                 return true;
             }
 
-            console.info({ recursiveObject }, { recursiveArray });
-
-            console.error({
+            window.console.info({ recursiveObject }, { recursiveArray });
+            window.console.error({
                 fnc: abc,
                 symbol: Symbol("My"),
                 weakMap: new WeakMap([[{}, ""]]),
@@ -524,18 +558,25 @@ test.describe("Recursive objects and non-serializable values", () => {
             });
         });
 
-        // 2 console entries, visiting "/" does not throw an uncaught error
+    const testCase = async (page: Page, watchTheConsole: WatchTheConsole, prettyOutput = true) => {
+        await page.goto("/");
+
+        await logSpecialValues(page);
+
         await waitForRecords(watchTheConsole, 2);
 
         watchTheConsole.writeLogToFile(outputDir, { prettyOutput });
 
-        const outputFileName = createOutputFileName(test.info().titlePath);
+        const outputFileName = createOutputFileName(outputDir);
 
-        const log = JSON.parse(fs.readFileSync(outputFileName, "utf8")) as ConsoleLog[];
+        const log = readLog(outputFileName);
 
         expect(log.length).toEqual(2);
         expect(log[0].type).toEqual(ConsoleLogType.ConsoleInfo);
-        // Circular references are collapsed to "[Circular]" - identical to the Cypress output.
+        expect(new Date(log[0].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[0].currentTime).toBe("string");
+        expect(log[0].currentTime).not.toEqual("");
+        // circular references are collapsed to "[Circular]" (same marker as cypress-interceptor)
         expect(log[0].args).toEqual([
             {
                 recursiveObject: {
@@ -549,8 +590,11 @@ test.describe("Recursive objects and non-serializable values", () => {
             }
         ]);
         expect(log[1].type).toEqual(ConsoleLogType.ConsoleError);
-        // Adaptation: Playwright's `jsonValue()` drops functions and symbols, and serializes
-        // WeakMap/WeakSet as empty objects (Cypress recorded them as "WeakMap"/"WeakSet"/String(fn)).
+        expect(new Date(log[1].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[1].currentTime).toBe("string");
+        expect(log[1].currentTime).not.toEqual("");
+        // Adaptation: `jsonValue()` drops functions and symbols and serializes WeakMap/WeakSet as
+        // `{}` (Cypress' cloning serializer produced `String(fn)` / "Symbol" / "WeakMap" / "WeakSet").
         expect(log[1].args).toEqual([
             {
                 weakMap: {},
@@ -565,7 +609,7 @@ test.describe("Recursive objects and non-serializable values", () => {
     }) => {
         watchTheConsole.setOptions({ cloneConsoleArguments: true });
 
-        await runTestCase(page, watchTheConsole, true);
+        await testCase(page, watchTheConsole);
     });
 
     test("Should create a file with cloned entries - without pretty output", async ({
@@ -574,7 +618,7 @@ test.describe("Recursive objects and non-serializable values", () => {
     }) => {
         watchTheConsole.setOptions({ cloneConsoleArguments: true });
 
-        await runTestCase(page, watchTheConsole, false);
+        await testCase(page, watchTheConsole, false);
     });
 
     test("Should create a file with cloned log - with pretty output", async ({
@@ -583,7 +627,7 @@ test.describe("Recursive objects and non-serializable values", () => {
     }) => {
         watchTheConsole.setOptions({ cloneConsoleArguments: false });
 
-        await runTestCase(page, watchTheConsole, true);
+        await testCase(page, watchTheConsole);
     });
 
     test("Should create a file with cloned log - without pretty output", async ({
@@ -592,21 +636,22 @@ test.describe("Recursive objects and non-serializable values", () => {
     }) => {
         watchTheConsole.setOptions({ cloneConsoleArguments: false });
 
-        await runTestCase(page, watchTheConsole, false);
+        await testCase(page, watchTheConsole, false);
     });
 });
 
-test.describe("Multiple types and deeply nested objects", () => {
+test.describe("JSON.stringify multiple types and deeply nested objects", () => {
     test.beforeAll(() => {
         fs.rmSync(outputDir, { force: true, recursive: true });
     });
 
-    test("Should create a file with the serialized entries", async ({ page, watchTheConsole }) => {
+    test.beforeEach(({ watchTheConsole }) => {
         watchTheConsole.setOptions({ cloneConsoleArguments: true });
+    });
 
-        await page.goto("/");
-
-        await page.evaluate(() => {
+    /** Deeply nested, self-referencing object serialization (built in the browser). */
+    const logDeeplyNested = (page: Page) =>
+        page.evaluate(() => {
             const recursiveObject: Record<string, unknown> = {};
 
             function abcd() {
@@ -624,21 +669,30 @@ test.describe("Multiple types and deeply nested objects", () => {
                 },
                 p: abcd
             };
-            console.info({ recursiveObject }, [recursiveObject, recursiveObject, recursiveObject]);
-            console.warn([recursiveObject, recursiveObject], { more: { recursiveObject } });
+
+            window.console.info({ recursiveObject }, [
+                recursiveObject,
+                recursiveObject,
+                recursiveObject
+            ]);
+            window.console.warn([recursiveObject, recursiveObject], { more: { recursiveObject } });
         });
+
+    test("Should create a file with filtered entries", async ({ page, watchTheConsole }) => {
+        await page.goto("/");
+
+        await logDeeplyNested(page);
 
         await waitForRecords(watchTheConsole, 2);
 
         watchTheConsole.writeLogToFile(outputDir, { prettyOutput: true });
 
-        const outputFileName = createOutputFileName(test.info().titlePath);
+        const outputFileName = createOutputFileName(outputDir);
 
-        const log = JSON.parse(fs.readFileSync(outputFileName, "utf8")) as ConsoleLog[];
+        const log = readLog(outputFileName);
 
-        // The serialized form of `recursiveObject` after Playwright's `jsonValue()`:
-        // - `u: undefined` is dropped, `NaN` becomes `null`, the circular refs become "[Circular]",
-        // - `p` (a function) is dropped (Cypress recorded it as String(abcd)).
+        // Adaptation: `jsonValue()` drops `undefined` (`u`) and function (`p`) properties, `NaN`
+        // becomes `null` once written to the file, and circular references collapse to "[Circular]".
         const serialized = {
             abc: "abc",
             bool: false,
@@ -652,109 +706,150 @@ test.describe("Multiple types and deeply nested objects", () => {
         };
 
         expect(log[0].args).toEqual([
-            { recursiveObject: serialized },
+            {
+                recursiveObject: serialized
+            },
             [serialized, serialized, serialized]
         ]);
+
         expect(log[1].args).toEqual([
             [serialized, serialized],
-            { more: { recursiveObject: serialized } }
+            {
+                more: {
+                    recursiveObject: serialized
+                }
+            }
         ]);
     });
 });
 
 test.describe("Logging various JavaScript objects", () => {
+    /**
+     * A `Token` marks a value that cannot be sent across the Node <-> browser boundary and must be
+     * built inside the page instead (functions, `Date`, `RegExp`, DOM nodes, React elements).
+     */
+    type Token = "function" | "date" | "regexp" | "div" | "button" | "react";
+
+    /**
+     * Single source of truth for the logged cases - it drives both the logging and the checking, so
+     * a value is never written twice:
+     * - `message`: the label logged next to the value.
+     * - `value`: a JSON-serializable value sent to the browser and logged as-is.
+     * - `token`: for non-serializable values, the real object is built in the browser from this tag.
+     * - `expected`: the value after `watchTheConsole` serializes it back to Node. When omitted it
+     *   defaults to `value` (i.e. the value survives serialization unchanged).
+     */
+    interface LogCase {
+        message: string;
+        value?: unknown;
+        token?: Token;
+        expected?: unknown;
+    }
+
+    const cases: LogCase[] = [
+        { message: "String", value: "Hello, World!" },
+        { message: "Number", value: 42 },
+        { message: "Boolean", value: true },
+        { message: "Null", value: null },
+        // `undefined` is dropped by `jsonValue()`; `toEqual` ignores the `undefined` property.
+        { message: "Undefined", value: undefined },
+        { message: "Array", value: [1, 2, 3] },
+        { message: "Object", value: { key: "value" } },
+        // functions are dropped (no `String(fn)` clone in Playwright) -> only `{ message }` remains.
+        { message: "Function", token: "function" },
+        // `Date` / `RegExp` are collapsed to `{}` by `removeCircular`.
+        { message: "Date", token: "date", expected: {} },
+        { message: "RegExp", token: "regexp", expected: {} },
+        // DOM nodes serialize to the placeholder string "ref: <Node>".
+        { message: "DOM Element", token: "div", expected: "ref: <Node>" },
+        { message: "Button Element", token: "button", expected: "ref: <Node>" },
+        // the React element serializes structurally (its `$$typeof` symbol is dropped).
+        {
+            message: "React Element",
+            token: "react",
+            expected: {
+                type: "div",
+                key: null,
+                ref: null,
+                props: { children: "Hello, React!" },
+                _owner: null
+            }
+        }
+    ];
+
+    // the `window` object serializes to the placeholder string "ref: <Window>".
+    const windowExpected = "ref: <Window>";
+
     test.beforeAll(() => {
         fs.rmSync(outputDir, { force: true, recursive: true });
     });
 
     /**
-     * Log the 13 "various JavaScript objects" inside the browser. When `extraLog` is `true` an extra
-     * `console.info(window)` entry is appended (matches the Cypress "with clone" case).
+     * Log every case in the browser (building the token-based values there). `extraLog` appends the
+     * `window` object as an extra `console.info` entry.
      */
-    const visitAndLog = async (page: import("@playwright/test").Page, extraLog = false) => {
+    const visitAndLog = async (page: Page, extraLog = false) => {
         await page.goto(staticUrl);
 
-        await page.evaluate((withExtra) => {
-            const customFunction = () => "Hello";
+        await page.evaluate(
+            ({ logCases, extra }) => {
+                const win = window as Window & {
+                    React?: {
+                        createElement: (...args: unknown[]) => unknown;
+                    };
+                };
 
-            const w = window as unknown as {
-                React?: { createElement: (...args: unknown[]) => unknown };
-            };
+                const build = ({ token, value }: { token?: Token; value?: unknown }) => {
+                    switch (token) {
+                        case "function":
+                            return () => {
+                                return "Hello";
+                            };
+                        case "date":
+                            return new Date("01-18-2025");
+                        case "regexp":
+                            return /abc/;
+                        case "div":
+                            return win.document.createElement("div");
+                        case "button":
+                            return win.document.createElement("button");
+                        case "react":
+                            return win.React?.createElement("div", null, "Hello, React!");
+                        default:
+                            return value;
+                    }
+                };
 
-            console.log({ message: "String", value: "Hello, World!" });
-            console.log({ message: "Number", value: 42 });
-            console.log({ message: "Boolean", value: true });
-            console.log({ message: "Null", value: null });
-            console.log({ message: "Undefined", value: undefined });
-            console.log({ message: "Array", value: [1, 2, 3] });
-            console.log({ message: "Object", value: { key: "value" } });
-            console.log({ message: "Function", value: customFunction });
-            console.log({ message: "Date", value: new Date("01-18-2025") });
-            console.log({ message: "RegExp", value: /abc/ });
-            console.log({ message: "DOM Element", value: document.createElement("div") });
-            console.log({ message: "Button Element", value: document.createElement("button") });
-            console.log({
-                message: "React Element",
-                value: w.React?.createElement("div", null, "Hello, React!")
-            });
+                for (const logCase of logCases) {
+                    window.console.log({ message: logCase.message, value: build(logCase) });
+                }
 
-            if (withExtra) {
-                console.info(window);
-            }
-        }, extraLog);
+                if (extra) {
+                    window.console.info(win);
+                }
+            },
+            { logCases: cases, extra: extraLog }
+        );
     };
 
-    /**
-     * Assert the 13 common serialized entries (`log[1]` .. `log[13]`, after the leading uncaught
-     * error at `log[0]`). Because `cloneConsoleArguments` is a no-op in Playwright these values are
-     * identical for the "with clone" and "without clone" cases.
-     */
-    const assertCommonLogs = (log: ConsoleLog[]) => {
+    /** Shared assertions - the expected values come from the `cases` source of truth. */
+    const checkLog = (log: ConsoleLog[], withWindow: boolean) => {
+        expect(log.length).toEqual(cases.length + 1 + (withWindow ? 1 : 0));
         expect(log[0].type).toEqual(ConsoleLogType.Error);
         expect(new Date(log[0].dateTime).toString()).not.toEqual(invalidDate);
+        expect(typeof log[0].currentTime).toBe("string");
+        expect(log[0].currentTime).not.toEqual("");
         expect(typeof log[0].args[0]).toBe("string");
-        expect(log[1].args).toEqual([{ message: "String", value: "Hello, World!" }]);
-        expect(log[2].args).toEqual([{ message: "Number", value: 42 }]);
-        expect(log[3].args).toEqual([{ message: "Boolean", value: true }]);
-        expect(log[4].args).toEqual([{ message: "Null", value: null }]);
-        // `undefined` values are dropped by serialization
-        expect(log[5].args).toEqual([{ message: "Undefined" }]);
-        expect(log[6].args).toEqual([{ message: "Array", value: [1, 2, 3] }]);
-        expect(log[7].args).toEqual([{ message: "Object", value: { key: "value" } }]);
-        // functions are dropped by serialization (Cypress "with clone" recorded String(fn))
-        expect(log[8].args).toEqual([{ message: "Function" }]);
 
-        // Date serializes to `{}` in Playwright, so the round-trip `new Date(value)` check is dropped
-        const dateEntry = log[9].args[0] as { message: string };
+        cases.forEach((logCase, index) => {
+            const value = "expected" in logCase ? logCase.expected : logCase.value;
 
-        expect(dateEntry.message).toEqual("Date");
-        expect(log[10].args).toEqual([{ message: "RegExp", value: {} }]);
+            expect(log[index + 1].args).toEqual([{ message: logCase.message, value }]);
+        });
 
-        // DOM nodes serialize to an opaque string in Playwright (Cypress: "HTMLDivElement" / {})
-        const domEntry = log[11].args[0] as { message: string; value: unknown };
-
-        expect(domEntry.message).toEqual("DOM Element");
-        expect(typeof domEntry.value).toBe("string");
-
-        const buttonEntry = log[12].args[0] as { message: string; value: unknown };
-
-        expect(buttonEntry.message).toEqual("Button Element");
-        expect(typeof buttonEntry.value).toBe("string");
-        // React elements serialize to the plain element object (matches Cypress "without clone")
-        expect(log[13].args).toEqual([
-            {
-                message: "React Element",
-                value: {
-                    type: "div",
-                    key: null,
-                    ref: null,
-                    props: {
-                        children: "Hello, React!"
-                    },
-                    _owner: null
-                }
-            }
-        ]);
+        if (withWindow) {
+            expect(log[cases.length + 1].args).toEqual([windowExpected]);
+        }
     };
 
     test("Should log various JavaScript objects - with clone", async ({
@@ -765,21 +860,15 @@ test.describe("Logging various JavaScript objects", () => {
 
         await visitAndLog(page, true);
 
-        // 13 logs + 1 window info + 1 uncaught error
-        await waitForRecords(watchTheConsole, 15);
+        await waitForRecords(watchTheConsole, cases.length + 2);
 
         watchTheConsole.writeLogToFile(outputDir, { prettyOutput: true });
 
-        const outputFileName = createOutputFileName(test.info().titlePath);
+        const outputFileName = createOutputFileName(outputDir);
 
         expect(fs.existsSync(outputFileName)).toBe(true);
 
-        const log = JSON.parse(fs.readFileSync(outputFileName, "utf8")) as ConsoleLog[];
-
-        expect(log.length).toEqual(15);
-        assertCommonLogs(log);
-        // window serializes to an opaque string in Playwright (Cypress recorded "Window")
-        expect(typeof log[14].args[0]).toBe("string");
+        checkLog(readLog(outputFileName), true);
     });
 
     test("Should log various JavaScript objects - without clone", async ({
@@ -788,18 +877,79 @@ test.describe("Logging various JavaScript objects", () => {
     }) => {
         await visitAndLog(page);
 
-        // 13 logs + 1 uncaught error
-        await waitForRecords(watchTheConsole, 14);
+        await waitForRecords(watchTheConsole, cases.length + 1);
 
         watchTheConsole.writeLogToFile(outputDir, { prettyOutput: true });
 
-        const outputFileName = createOutputFileName(test.info().titlePath);
+        const outputFileName = createOutputFileName(outputDir);
 
         expect(fs.existsSync(outputFileName)).toBe(true);
 
-        const log = JSON.parse(fs.readFileSync(outputFileName, "utf8")) as ConsoleLog[];
+        checkLog(readLog(outputFileName), false);
+    });
+});
 
-        expect(log.length).toEqual(14);
-        assertCommonLogs(log);
+test.describe("WatchTheConsole API coverage", () => {
+    test.beforeAll(() => {
+        fs.rmSync(outputDir, { force: true, recursive: true });
+    });
+
+    test("exposes the recorded output grouped by type", async ({ page, watchTheConsole }) => {
+        // the static page throws an intentional error -> populates the `jsError` getter
+        await page.goto(staticUrl);
+
+        const logQueue: LogQueue = [
+            [ConsoleLogType.ConsoleLog, ["a log"]],
+            [ConsoleLogType.ConsoleInfo, ["an info"]],
+            [ConsoleLogType.ConsoleWarn, ["a warn"]],
+            [ConsoleLogType.ConsoleError, ["an error"]]
+        ];
+
+        await createConsoleLog(page, logQueue);
+
+        await waitForRecords(watchTheConsole, logQueue.length + 1);
+
+        // each getter returns only the records of its own type
+        expect(watchTheConsole.log.map((record) => record.args)).toEqual([["a log"]]);
+        expect(watchTheConsole.info.map((record) => record.args)).toEqual([["an info"]]);
+        expect(watchTheConsole.warn.map((record) => record.args)).toEqual([["a warn"]]);
+        expect(watchTheConsole.error.map((record) => record.args)).toEqual([["an error"]]);
+
+        expect(watchTheConsole.jsError).toHaveLength(1);
+        expect(watchTheConsole.jsError[0].type).toEqual(ConsoleLogType.Error);
+        expect(typeof watchTheConsole.jsError[0].args[0]).toBe("string");
+    });
+
+    test("ignores console types that are not tracked", async ({ page, watchTheConsole }) => {
+        await page.goto("/");
+
+        // `console.debug` has no mapping in the interceptor, so it must be ignored while the
+        // `console.log` right after it is still recorded.
+        await page.evaluate(() => {
+            window.console.debug("debug message");
+            window.console.log("log message");
+        });
+
+        await waitForRecords(watchTheConsole, 1);
+
+        expect(watchTheConsole.records).toHaveLength(1);
+        expect(watchTheConsole.log.map((record) => record.args)).toEqual([["log message"]]);
+    });
+
+    test("start and destroy are idempotent", async ({ page, watchTheConsole }) => {
+        await page.goto("/");
+
+        // the fixture already started it; calling start again while active is a no-op
+        watchTheConsole.start();
+
+        await page.evaluate(() => window.console.log("still watching"));
+
+        await waitForRecords(watchTheConsole, 1);
+
+        expect(watchTheConsole.log.map((record) => record.args)).toEqual([["still watching"]]);
+
+        // the first destroy stops watching; the second (and the fixture teardown) is a no-op
+        watchTheConsole.destroy();
+        watchTheConsole.destroy();
     });
 });

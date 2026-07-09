@@ -593,6 +593,32 @@ test.describe("Validator Tests", () => {
             );
         });
 
+        test("should throw for invalid requestDelay type", () => {
+            const invalid: Partial<CallStackJson>[] = [
+                {
+                    resourceType: "xhr",
+                    isPending: false,
+                    request: {
+                        body: "body",
+                        headers: {},
+                        method: "GET",
+                        query: {}
+                    },
+                    timeStart: "2024-03-20T10:00:00Z",
+                    url: "https://api.example.com",
+                    requestDelay: "not-a-number" as unknown as number
+                }
+            ];
+
+            expect(() => validateStats(invalid as CallStackJson[])).toThrow(
+                createValidationError(
+                    0,
+                    "requestDelay",
+                    ValidationErrorMessages.REQUEST_DELAY_MUST_BE_NUMBER
+                ).message
+            );
+        });
+
         test("should throw for missing request", () => {
             const invalid: Partial<CallStackJson>[] = [
                 {
