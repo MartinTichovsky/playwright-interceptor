@@ -1,0 +1,11 @@
+{
+    "compilerOptions": {
+        "composite": false,
+        "types": ["node"],
+        "lib": ["ES2021", "DOM", "DOM.Iterable"],
+        "module": "CommonJS"
+    },
+    "exclude": ["node_modules"],
+    "extends": "../../tsconfig.json",
+    "include": ["**/*.ts"]
+}

@@ -1,0 +1,11 @@
+node_modules
+lib
+tsconfig.tsbuildinfo
+tsconfig.build.tsbuildinfo
+**/test-results
+**/playwright-report
+**/_output
+packages/interceptor/**/*.js
+packages/interceptor/**/*.d.ts
+packages/server/fixtures
+coverage/

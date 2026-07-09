@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "allowSyntheticDefaultImports": true,
+        "composite": true,
+        "esModuleInterop": true,
+        "strict": true,
+        "target": "ES2021",
+        "paths": {
+            "playwright-interceptor": ["./packages/interceptor"],
+            "playwright-interceptor-server": ["./packages/server"],
+            "playwright-interceptor-share": ["./packages/share"]
+        },
+        "skipLibCheck": true
+    }
+}

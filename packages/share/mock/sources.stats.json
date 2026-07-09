@@ -1,0 +1,193 @@
+[
+    {
+        "crossDomain": false,
+        "duration": 250,
+        "isPending": false,
+        "resourceType": "fetch",
+        "request": {
+            "body": "",
+            "headers": {
+                "accept": "application/json",
+                "content-type": "application/json"
+            },
+            "method": "GET",
+            "query": {
+                "page": "1",
+                "path": "/api/users"
+            }
+        },
+        "response": {
+            "body": "{\"users\":[{\"id\":1,\"name\":\"Alice\"}]}",
+            "headers": {
+                "content-type": "application/json"
+            },
+            "isMock": false,
+            "statusCode": 200,
+            "statusText": "OK",
+            "timeEnd": "2024-01-01T10:00:00.250Z"
+        },
+        "runtime": 250,
+        "runtimeString": "0h 0m 0s 250ms",
+        "sequenceId": 1,
+        "timeStart": "2024-01-01T10:00:00.000Z",
+        "url": "http://localhost:3000/api/users"
+    },
+    {
+        "crossDomain": false,
+        "duration": 4200,
+        "isPending": false,
+        "resourceType": "fetch",
+        "request": {
+            "body": "{\"query\":\"select *\"}",
+            "headers": {
+                "accept": "application/json",
+                "content-type": "application/json"
+            },
+            "method": "POST",
+            "query": {
+                "path": "/api/search"
+            }
+        },
+        "response": {
+            "body": "{\"results\":[1,2,3,4,5]}",
+            "headers": {
+                "content-type": "application/json"
+            },
+            "isMock": false,
+            "statusCode": 200,
+            "statusText": "OK",
+            "timeEnd": "2024-01-01T10:00:05.200Z"
+        },
+        "runtime": 4200,
+        "runtimeString": "0h 0m 4s 200ms",
+        "sequenceId": 2,
+        "timeStart": "2024-01-01T10:00:01.000Z",
+        "url": "http://localhost:3000/api/search"
+    },
+    {
+        "crossDomain": false,
+        "duration": 800,
+        "isPending": false,
+        "resourceType": "xhr",
+        "request": {
+            "body": "",
+            "headers": {
+                "accept": "application/json"
+            },
+            "method": "GET",
+            "query": {
+                "id": "42"
+            }
+        },
+        "response": {
+            "body": "{\"id\":42,\"status\":\"active\"}",
+            "headers": {
+                "content-type": "application/json"
+            },
+            "isMock": false,
+            "statusCode": 200,
+            "statusText": "OK",
+            "timeEnd": "2024-01-01T10:00:06.800Z"
+        },
+        "runtime": 800,
+        "runtimeString": "0h 0m 0s 800ms",
+        "sequenceId": 3,
+        "timeStart": "2024-01-01T10:00:06.000Z",
+        "url": "http://localhost:3000/api/profile"
+    },
+    {
+        "crossDomain": false,
+        "duration": 3500,
+        "isPending": false,
+        "resourceType": "fetch",
+        "request": {
+            "body": "{\"name\":\"report\",\"format\":\"pdf\"}",
+            "headers": {
+                "accept": "application/json",
+                "content-type": "application/json"
+            },
+            "method": "PUT",
+            "query": {
+                "path": "/api/reports"
+            }
+        },
+        "response": {
+            "body": "{\"ok\":true}",
+            "headers": {
+                "content-type": "application/json"
+            },
+            "isMock": false,
+            "statusCode": 201,
+            "statusText": "Created",
+            "timeEnd": "2024-01-01T10:00:10.500Z"
+        },
+        "runtime": 3500,
+        "runtimeString": "0h 0m 3s 500ms",
+        "sequenceId": 4,
+        "timeStart": "2024-01-01T10:00:07.000Z",
+        "url": "http://localhost:3000/api/reports"
+    },
+    {
+        "crossDomain": false,
+        "duration": 1200,
+        "isPending": false,
+        "resourceType": "fetch",
+        "request": {
+            "body": "",
+            "headers": {
+                "accept": "application/json"
+            },
+            "method": "DELETE",
+            "query": {
+                "id": "7"
+            }
+        },
+        "response": {
+            "body": "{\"deleted\":true}",
+            "headers": {
+                "content-type": "application/json"
+            },
+            "isMock": false,
+            "statusCode": 200,
+            "statusText": "OK",
+            "timeEnd": "2024-01-01T10:00:13.200Z"
+        },
+        "runtime": 1200,
+        "runtimeString": "0h 0m 1s 200ms",
+        "sequenceId": 5,
+        "timeStart": "2024-01-01T10:00:12.000Z",
+        "url": "http://localhost:3000/api/items"
+    },
+    {
+        "crossDomain": false,
+        "duration": 5000,
+        "isPending": false,
+        "resourceType": "fetch",
+        "request": {
+            "body": "{\"file\":\"large.bin\"}",
+            "headers": {
+                "accept": "application/json",
+                "content-type": "application/json"
+            },
+            "method": "POST",
+            "query": {
+                "path": "/api/upload"
+            }
+        },
+        "response": {
+            "body": "{\"uploaded\":true,\"size\":10485760}",
+            "headers": {
+                "content-type": "application/json"
+            },
+            "isMock": false,
+            "statusCode": 200,
+            "statusText": "OK",
+            "timeEnd": "2024-01-01T10:00:20.000Z"
+        },
+        "runtime": 5000,
+        "runtimeString": "0h 0m 5s 000ms",
+        "sequenceId": 6,
+        "timeStart": "2024-01-01T10:00:15.000Z",
+        "url": "http://localhost:3000/api/upload"
+    }
+]

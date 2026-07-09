@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="initial-scale=1, minimum-scale=1, width=device-width" />
+    </head>
+
+    <body>
+        <h1>Example page dynamic</h1>
+        <script>
+            exports = {};
+        </script>
+        <script type="importmap">
+            {
+                "imports": {
+                    "playwright-interceptor/convert/common": "/public/resources/playwright-interceptor/convert/common.js",
+                    "playwright-interceptor/convert/convert": "/public/resources/playwright-interceptor/convert/convert.js",
+                    "playwright-interceptor/convert/formData": "/public/resources/playwright-interceptor/convert/formData.js",
+                    "playwright-interceptor/convert/replacer": "/public/resources/playwright-interceptor/convert/replacer.js",
+                    "playwright-interceptor/convert/xmlDocument": "/public/resources/playwright-interceptor/convert/xmlDocument.js"
+                }
+            }
+        </script>
+        <script src="./resources/dynamic.js" type="module"></script>
+        <div>
+            <button id="fire_request" onclick="fireRequest()">Fire a request</button>
+        </div>
+    </body>
+</html>

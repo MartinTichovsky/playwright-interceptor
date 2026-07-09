@@ -1,0 +1,1985 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duration Over Time Report</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #ffffff;
+            min-height: 100vh;
+            padding: 5px;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(120, 200, 80, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 100, 100, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(200, 200, 200, 0.02) 0%, transparent 50%);
+        }
+
+        .container {
+            max-width: 1500px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 25px;
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.08),
+                0 0 0 1px rgba(255, 255, 255, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.6);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(240, 240, 240, 0.8);
+            width: 100%;
+        }
+
+        .header {
+            background: linear-gradient(145deg, 
+                rgba(255, 255, 255, 0.9) 0%, 
+                rgba(248, 250, 252, 0.9) 50%, 
+                rgba(241, 245, 249, 0.9) 100%);
+            color: #2d3748;
+            padding: 35px;
+            text-align: center;
+            border-bottom: 3px solid rgba(226, 232, 240, 0.6);
+            position: relative;
+            width: 100%;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, 
+                #48bb78 0%, 
+                #68d391 25%, 
+                #fbb6ce 75%, 
+                #f56565 100%);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.7;
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            padding: 25px;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.8) 0%, 
+                rgba(252, 254, 255, 0.8) 100%);
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 
+                0 8px 25px rgba(0, 0, 0, 0.04),
+                0 0 0 1px rgba(255, 255, 255, 0.8),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            text-align: center;
+            border-left: 5px solid transparent;
+            background-image: linear-gradient(white, white), 
+                              linear-gradient(145deg, #48bb78, #f56565);
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 12px 35px rgba(0, 0, 0, 0.08),
+                0 0 0 1px rgba(255, 255, 255, 0.9);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255, 255, 255, 0.4), 
+                transparent);
+            transition: left 0.5s;
+        }
+
+        .stat-card:hover::before {
+            left: 100%;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #2d3748;
+            margin-bottom: 8px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .chart-container {
+            padding: 5px;
+            background: #ffffff;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 600px;
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 
+                inset 0 2px 4px rgba(0, 0, 0, 0.02),
+                0 1px 3px rgba(0, 0, 0, 0.05),
+                0 0 0 1px rgba(226, 232, 240, 0.5);
+            border: 1px solid rgba(226, 232, 240, 0.3);
+            display: flex;
+        }
+
+        .chart-y-axis {
+            position: sticky;
+            left: 0;
+            width: 40px;
+            height: 100%;
+            background: #ffffff;
+            z-index: 10;
+            border-right: 1px solid rgba(226, 232, 240, 0.3);
+            flex-shrink: 0;
+        }
+
+        .chart-scroll-area {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: hidden;
+            height: 100%;
+        }
+
+        .chart-content {
+            position: relative;
+            height: 100%;
+            min-width: 100%;
+        }
+
+        /* Custom scrollbar styling */
+        .chart-wrapper::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .chart-wrapper::-webkit-scrollbar-track {
+            background: rgba(226, 232, 240, 0.3);
+            border-radius: 4px;
+        }
+
+        .chart-wrapper::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, #48bb78, #f56565);
+            border-radius: 4px;
+        }
+
+        .chart-wrapper::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(90deg, #38a169, #e53e3e);
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 5px;
+            right: 20px;
+            font-size: 12px;
+            color: #718096;
+            font-weight: 500;
+            opacity: 0.7;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        .performance-legend {
+            position: absolute;
+            top: 15px;
+            right: 25px;
+            display: flex;
+            gap: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            z-index: 15;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-fast {
+            color: #38a169;
+        }
+
+        .legend-slow {
+            color: #e53e3e;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .legend-dot.fast {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+        }
+
+        .legend-dot.slow {
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+        }
+
+        .table-container {
+            padding: 45px;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.8) 0%, 
+                rgba(252, 254, 255, 0.8) 100%);
+            border-top: 2px solid rgba(226, 232, 240, 0.4);
+            width: 100%;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .table-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 30px;
+            height: 100%;
+            pointer-events: none;
+            background: linear-gradient(to left, rgba(255,255,255,0.95) 60%, rgba(255,255,255,0));
+            display: none;
+        }
+
+        .table-container.scrollable::after {
+            display: block;
+        }
+
+        .table-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .table-header h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 8px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-header p {
+            font-size: 1rem;
+            color: #718096;
+            font-weight: 500;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.08),
+                0 1px 2px rgba(0, 0, 0, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(226, 232, 240, 0.4);
+            min-width: 600px;
+        }
+
+        .data-table th, .data-table td {
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            max-width: 180px;
+        }
+
+        .data-table th {
+            background: linear-gradient(135deg, 
+                rgba(248, 250, 252, 0.98) 0%, 
+                rgba(241, 245, 249, 0.98) 100%);
+            color: #1a202c;
+            font-weight: 600;
+            padding: 18px 20px;
+            text-align: left;
+            font-size: 0.88rem;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            border-bottom: 2px solid rgba(226, 232, 240, 0.5);
+            position: relative;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+
+        .data-table th:hover {
+            background: linear-gradient(135deg, 
+                rgba(238, 242, 255, 0.98) 0%, 
+                rgba(224, 231, 255, 0.98) 100%);
+            transform: translateY(-1px);
+        }
+
+        .data-table th.sortable::after {
+            content: '↕️';
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8rem;
+            opacity: 0.5;
+            transition: all 0.2s ease;
+        }
+
+        .data-table th.sortable:hover::after {
+            opacity: 0.8;
+        }
+
+        .data-table th.sorted-asc::after {
+            content: '🔼';
+            opacity: 1;
+            color: #3b82f6;
+        }
+
+        .data-table th.sorted-desc::after {
+            content: '🔽';
+            opacity: 1;
+            color: #3b82f6;
+        }
+
+        .data-table td {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.2);
+            font-size: 0.92rem;
+            color: #4a5568;
+            background: rgba(255, 255, 255, 0.7);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            vertical-align: middle;
+        }
+
+        .data-table tbody tr:hover td {
+            background: rgba(248, 251, 255, 0.9);
+            box-shadow: inset 0 1px 0 rgba(99, 102, 241, 0.1);
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .expand-btn {
+            background: none;
+            border: none;
+            color: #4a5568;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+        }
+
+        .expand-btn:hover {
+            background: rgba(99, 102, 241, 0.1);
+            color: #6366f1;
+            transform: scale(1.1);
+        }
+
+        .expand-btn.expanded {
+            transform: rotate(90deg);
+            color: #6366f1;
+        }
+
+        .expand-btn.expanded:hover {
+            transform: rotate(90deg) scale(1.1);
+        }
+
+        .expandable-content {
+            display: none;
+            background: rgba(248, 250, 252, 0.8);
+            border-top: 1px solid rgba(226, 232, 240, 0.5);
+        }
+
+        .expandable-content.show {
+            display: table-row;
+        }
+
+        .expandable-content td {
+            padding: 0;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.2);
+        }
+
+        .expandable-details {
+            padding: 25px;
+            background: linear-gradient(135deg, 
+                rgba(248, 250, 252, 0.95) 0%, 
+                rgba(255, 255, 255, 0.95) 100%);
+            margin: 0;
+            border-radius: 12px;
+            margin: 8px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        .details-section {
+            margin-bottom: 20px;
+        }
+
+        .details-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .details-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .details-content {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(226, 232, 240, 0.4);
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .details-content.json {
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .details-content.params {
+            display: grid;
+            gap: 8px;
+        }
+
+        .param-item {
+            display: flex;
+            background: rgba(248, 250, 252, 0.6);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border-left: 3px solid #6366f1;
+        }
+
+        .param-key {
+            font-weight: 600;
+            color: #374151;
+            margin-right: 12px;
+            min-width: 100px;
+        }
+
+        .param-value {
+            color: #6b7280;
+            word-break: break-all;
+        }
+
+        .empty-state {
+            color: #9ca3af;
+            font-style: italic;
+            text-align: center;
+            padding: 12px;
+        }
+
+        .url-cell {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Courier New', monospace;
+            font-size: 0.86rem;
+            color: #2d3748;
+            font-weight: 500;
+            max-width: 350px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            line-height: 1.4;
+            position: relative;
+        }
+
+        .url-cell::before {
+            content: '🔗';
+            margin-right: 8px;
+            font-size: 0.9rem;
+            opacity: 0.6;
+        }
+
+        .shortened-url::after {
+            content: '📎';
+            position: absolute;
+            right: 2px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8rem;
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .time-cell {
+            font-weight: 500;
+            color: #4a5568;
+            white-space: nowrap;
+            font-size: 0.9rem;
+            font-family: 'SF Mono', 'Monaco', monospace;
+            position: relative;
+        }
+
+        .time-cell::before {
+            content: '📅';
+            margin-right: 8px;
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+
+        .duration-cell {
+            font-weight: 700;
+            font-size: 1.05rem;
+            text-align: right;
+            font-family: 'SF Mono', 'Monaco', monospace;
+            letter-spacing: 0.5px;
+            position: relative;
+        }
+
+        .duration-fast {
+            color: #22c55e;
+            text-shadow: 0 1px 2px rgba(34, 197, 94, 0.2);
+        }
+
+        .duration-slow {
+            color: #ef4444;
+            text-shadow: 0 1px 2px rgba(239, 68, 68, 0.2);
+        }
+
+        .duration-cell::before {
+            content: '⚡';
+            margin-right: 6px;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .duration-slow::before {
+            content: '🐌';
+        }
+
+        .footer {
+            background: linear-gradient(135deg, 
+                rgba(248, 250, 252, 0.9) 0%, 
+                rgba(255, 255, 255, 0.9) 100%);
+            padding: 25px;
+            text-align: center;
+            color: #718096;
+            font-size: 0.95rem;
+            font-weight: 500;
+            border-top: 2px solid rgba(226, 232, 240, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                max-width: 100vw;
+                border-radius: 0;
+                box-shadow: none;
+                border: none;
+                padding: 0;
+            }
+            .header {
+                padding: 18px 5px 18px 5px;
+            }
+            .header h1 {
+                font-size: 1.3rem;
+            }
+            .header p {
+                font-size: 1rem;
+            }
+            .stats {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                padding: 10px 5px;
+            }
+            .stat-card {
+                padding: 12px 5px;
+                border-radius: 10px;
+            }
+            .stat-value {
+                font-size: 1.1rem;
+            }
+            .stat-label {
+                font-size: 0.7rem;
+            }
+            .chart-container {
+                padding: 5px;
+            }
+            .chart-wrapper {
+                height: 220px;
+                padding: 5px;
+                border-radius: 10px;
+            }
+            .chart-y-axis {
+                width: 28px;
+            }
+            .performance-legend {
+                display: none !important;
+            }
+            .mobile-legend {
+                display: flex !important;
+                justify-content: center;
+                gap: 32px;
+            }
+            .legend-item {
+                flex-direction: row;
+                align-items: center;
+                margin-bottom: 2px;
+            }
+            .scroll-indicator {
+                font-size: 9px;
+                bottom: 2px;
+                right: 5px;
+            }
+            .table-container {
+                padding: 5px;
+                border-radius: 0;
+            }
+            .data-table {
+                font-size: 0.75rem;
+                min-width: 420px;
+            }
+            .data-table th,
+            .data-table td {
+                padding: 8px 4px;
+                max-width: 100px;
+            }
+            .url-cell {
+                max-width: 90px;
+                font-size: 0.7rem;
+            }
+            .time-cell {
+                font-size: 0.7rem;
+            }
+            .duration-cell {
+                font-size: 0.8rem;
+            }
+            .expand-btn {
+                width: 22px;
+                height: 22px;
+                font-size: 0.9rem;
+            }
+            .expandable-details {
+                padding: 7px;
+                margin: 2px;
+            }
+            .details-title {
+                font-size: 0.8rem;
+            }
+            .details-content {
+                padding: 6px;
+                font-size: 0.7rem;
+            }
+            .param-key {
+                min-width: 60px;
+                font-size: 0.7rem;
+            }
+            .param-value {
+                font-size: 0.7rem;
+            }
+        }
+        @media (max-width: 480px) {
+            .container {
+                max-width: 100vw;
+                border-radius: 0;
+                box-shadow: none;
+                border: none;
+                padding: 0;
+            }
+            .header {
+                padding: 10px 2px 10px 2px;
+            }
+            .header h1 {
+                font-size: 1rem;
+            }
+            .header p {
+                font-size: 0.8rem;
+            }
+            .stats {
+                grid-template-columns: 1fr 1fr;
+                gap: 5px;
+                padding: 5px 2px;
+            }
+            .stat-card {
+                padding: 7px 2px;
+                border-radius: 6px;
+            }
+            .stat-value {
+                font-size: 0.9rem;
+            }
+            .stat-label {
+                font-size: 0.6rem;
+            }
+            .chart-container {
+                padding: 2px;
+            }
+            .chart-wrapper {
+                /* Keep height at 220px for <=480px */
+                height: 220px;
+                padding: 2px;
+                border-radius: 6px;
+            }
+            .chart-y-axis {
+                width: 28px;
+            }
+            .performance-legend {
+                font-size: 0.6rem;
+                flex-direction: column;
+                gap: 2px;
+                align-items: flex-start;
+            }
+            .mobile-legend {
+                justify-content: center;
+                gap: 32px;
+            }
+            .legend-item {
+                flex-direction: row;
+                align-items: center;
+                margin-bottom: 1px;
+            }
+            .table-container {
+                padding: 2px;
+                border-radius: 0;
+            }
+            .data-table {
+                font-size: 0.65rem;
+                min-width: 300px;
+            }
+            .data-table th,
+            .data-table td {
+                padding: 5px 2px;
+                max-width: 60px;
+            }
+            .url-cell {
+                max-width: 60px;
+                font-size: 0.6rem;
+            }
+            .time-cell {
+                font-size: 0.6rem;
+            }
+            .duration-cell {
+                font-size: 0.7rem;
+            }
+            .expand-btn {
+                width: 18px;
+                height: 18px;
+                font-size: 0.7rem;
+            }
+            .expandable-details {
+                padding: 3px;
+                margin: 1px;
+            }
+            .details-title {
+                font-size: 0.7rem;
+            }
+            .details-content {
+                padding: 3px;
+                font-size: 0.6rem;
+            }
+            .param-key {
+                min-width: 40px;
+                font-size: 0.6rem;
+            }
+            .param-value {
+                font-size: 0.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Duration Analysis Report</h1>
+            <p>Performance metrics over time - 43 data points</p>
+        </div>
+
+        <div class="stats" data-testid="stats-container">
+            <div class="stat-card" data-testid="max-duration-card">
+                <div class="stat-value">5234.60ms</div>
+                <div class="stat-label">Max Duration</div>
+            </div>
+            <div class="stat-card" data-testid="min-duration-card">
+                <div class="stat-value">123.70ms</div>
+                <div class="stat-label">Min Duration</div>
+            </div>
+            <div class="stat-card" data-testid="avg-duration-card">
+                <div class="stat-value">1841.90ms</div>
+                <div class="stat-label">Average Duration</div>
+            </div>
+            <div class="stat-card" data-testid="total-requests-card">
+                <div class="stat-value">43</div>
+                <div class="stat-label">Total Requests</div>
+            </div>
+        </div>
+
+        <div class="chart-container" data-testid="chart-container">
+            <div class="chart-wrapper" data-testid="chart-wrapper">
+                <div class="performance-legend" data-testid="performance-legend">
+                    <div class="legend-item" data-testid="legend-fast">
+                        <div class="legend-dot fast"></div>
+                        <span class="legend-fast">Fast (< 3000ms)</span>
+                    </div>
+                    
+                    <div class="legend-item" data-testid="legend-slow">
+                        <div class="legend-dot slow"></div>
+                        <span class="legend-slow">Slow (≥ 3000ms)</span>
+                    </div>
+                    
+                </div>
+                <div class="chart-y-axis" data-testid="chart-y-axis">
+                    <canvas id="yAxisChart" data-testid="y-axis-canvas"></canvas>
+                </div>
+                <div class="chart-scroll-area" data-testid="chart-scroll-area">
+                    <div class="chart-content" data-testid="chart-content">
+                        <canvas id="durationChart" data-testid="duration-chart-canvas"></canvas>
+                    </div>
+                    <div class="scroll-indicator" id="scrollIndicator" data-testid="scroll-indicator" style="display: none;">
+                        ← Scroll to see more requests →
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Mobile legend below the graph -->
+        <div class="mobile-legend" aria-label="Performance legend" tabindex="0" style="display:none">
+            <div class="legend-item">
+                <div class="legend-dot fast"></div>
+                <span class="legend-fast">Fast (< 3000ms)</span>
+            </div>
+            
+            <div class="legend-item">
+                <div class="legend-dot slow"></div>
+                <span class="legend-slow">Slow (≥ 3000ms)</span>
+            </div>
+            
+        </div>
+
+        <div class="table-container" data-testid="table-container">
+            <div class="table-header" data-testid="table-header">
+                <h2>Request Details</h2>
+                <p>Detailed breakdown of all requests sorted by time</p>
+            </div>
+            <table class="data-table" id="requestTable" data-testid="data-table">
+                <thead data-testid="table-head">
+                    <tr>
+                        <th style="width: 40px;" data-testid="expand-column">📋</th>
+                        <th class="sortable" data-sort="url" data-testid="url-column">🌐 URL</th>
+                        <th class="sortable" data-sort="method" data-testid="method-column">📝 Method</th>
+                        <th class="sortable" data-sort="time" data-testid="time-column">⏰ Time</th>
+                        <th class="sortable" data-sort="duration" data-testid="duration-column">⚡ Duration</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" data-testid="table-body">
+                    <!-- Table rows will be populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            Generated on 2. 7. 2025 15:27:46 • Duration over Time Analysis
+        </div>
+    </div>
+
+    <script>
+        // Custom chart implementation using HTML5 Canvas
+        const canvas = document.getElementById('durationChart');
+        const ctx = canvas.getContext('2d');
+        const yAxisCanvas = document.getElementById('yAxisChart');
+        const yAxisCtx = yAxisCanvas.getContext('2d');
+        
+        // Data
+        const labels = ["11:30:00s 000ms","11:30:05s 000ms","11:30:12s 000ms","11:30:16s 000ms","11:30:25s 000ms","11:30:31s 000ms","11:30:39s 000ms","11:30:44s 000ms","11:30:54s 000ms","11:31:01s 000ms","11:31:05s 000ms","11:31:14s 000ms","11:31:20s 000ms","11:31:25s 000ms","11:31:35s 000ms","11:31:43s 000ms","11:31:50s 000ms","11:31:56s 000ms","11:32:05s 000ms","11:32:10s 000ms","11:32:18s 000ms","11:32:28s 000ms","11:32:33s 000ms","11:32:40s 000ms","11:32:50s 000ms","11:32:51s 000ms","11:32:52s 000ms","11:32:54s 000ms","11:32:57s 000ms","11:32:58s 000ms","11:33:02s 000ms","11:33:03s 000ms","11:33:05s 000ms","11:33:06s 000ms","11:33:07s 000ms","11:33:12s 000ms","11:33:15s 000ms","11:33:17s 000ms","11:33:18s 000ms","11:33:19s 000ms","11:33:22s 000ms","11:33:24s 000ms","11:33:25s 000ms"];
+        const data = [1850.5,2189.1,3456.7,2334.2,1678.9,2234.8,4567.3,1876.5,1543.2,1987.6,1765.4,2432.1,1321.9,2234.7,1654.3,1789.4,2432.8,1765.2,1567.1,1832.6,2123.7,1576.3,1234.9,1456.3,156.7,892.4,1234.6,2198.3,534.2,3456.7,287.5,1876.4,743.8,123.7,4567.2,2341.9,1567.3,398.6,867.4,2234.7,1345.8,234.5,5234.6];
+        const tableData = [{"duration":1850.5,"time":"11:30:00s 000ms","url":"https://api.example.com/auth/login","method":"POST","query":{},"headers":{"Cache-Control":"no-cache","X-Requested-With":"XMLHttpRequest","Content-Type":"application/json;charset=UTF-8"},"requestBody":"{\"repository\":\"demo\",\"project\":\"WebApp\",\"userName\":\"testuser\",\"password\":\"demo123\",\"info\":{\"dpr\":1,\"agent\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\",\"culture\":\"en-US\",\"dpi\":{\"screenX\":96,\"screenY\":96},\"scrollbars\":{\"vertical\":17,\"horizontal\":17},\"timeZone\":\"UTC\",\"orientation\":null}}","responseBody":"{\"isAuthenticated\":true,\"user\":{\"displayName\":\"Test User\",\"role\":\"user\",\"permissions\":[\"read\",\"write\"]},\"token\":\"demo-token-123\",\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:30:04 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":2189.1,"time":"11:30:05s 000ms","url":"https://api.example.com/dashboard/status?_dc=1705314604500","method":"GET","query":{"_dc":"1705314604500"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"status\":\"active\",\"version\":\"1.0.0\",\"uptime\":86400,\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:30:11 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":3456.7,"time":"11:30:12s 000ms","url":"https://api.example.com/data/items?_dc=1705314612000&page=1&start=0&limit=25","method":"GET","query":{"_dc":"1705314612000","page":"1","start":"0","limit":"25"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"data\":[{\"id\":\"item-001\",\"name\":\"Sample Item\",\"type\":\"document\",\"created\":\"2024-01-15T09:00:00Z\"},{\"id\":\"item-002\",\"name\":\"Another Item\",\"type\":\"image\",\"created\":\"2024-01-15T08:30:00Z\"}],\"total\":2,\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:30:15 GMT"},"statusCode":200,"highDuration":3000,"isSlow":true},{"duration":2334.2,"time":"11:30:16s 000ms","url":"https://api.example.com/database/query","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"query\":\"SELECT * FROM products WHERE category = 'electronics'\",\"limit\":100}","responseBody":"{\"data\":[{\"id\":\"prod-001\",\"name\":\"Smartphone\",\"category\":\"electronics\",\"price\":299.99},{\"id\":\"prod-002\",\"name\":\"Laptop\",\"category\":\"electronics\",\"price\":899.99},{\"id\":\"prod-003\",\"name\":\"Tablet\",\"category\":\"electronics\",\"price\":199.99}],\"count\":3,\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:30:24 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1678.9,"time":"11:30:25s 000ms","url":"https://api.example.com/user/profile?_dc=1705314625000&userId=user-123","method":"GET","query":{"_dc":"1705314625000","userId":"user-123"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"user\":{\"id\":\"user-123\",\"name\":\"John Doe\",\"email\":\"john.doe@example.com\",\"role\":\"admin\",\"lastLogin\":\"2024-01-15T10:00:00Z\"},\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:30:30 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":2234.8,"time":"11:30:31s 000ms","url":"https://api.example.com/reports/generate","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"reportId\":\"rpt-001\",\"parameters\":{\"startDate\":\"2024-01-01\",\"endDate\":\"2024-01-15\"}}","responseBody":"{\"reportId\":\"rpt-001-exec-456\",\"status\":\"completed\",\"downloadUrl\":\"/downloads/report-456.pdf\",\"recordCount\":1542,\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:30:38 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":4567.3,"time":"11:30:39s 000ms","url":"https://api.example.com/dashboard/widgets?_dc=1705314638500&category=analytics","method":"GET","query":{"_dc":"1705314638500","category":"analytics"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"widgets\":[{\"id\":\"widget-001\",\"name\":\"Sales Chart\",\"type\":\"chart\",\"config\":{\"chartType\":\"line\",\"dataSource\":\"sales-data\"}},{\"id\":\"widget-002\",\"name\":\"User Activity\",\"type\":\"table\",\"config\":{\"columns\":[\"user\",\"action\",\"timestamp\"]}}],\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:30:43 GMT"},"statusCode":200,"highDuration":3000,"isSlow":true},{"duration":1876.5,"time":"11:30:44s 000ms","url":"https://api.example.com/data/export","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"fileName\":\"data-export.csv\",\"format\":\"csv\",\"filters\":{\"dateRange\":\"last-30-days\"}}","responseBody":"{\"exportId\":\"exp-789\",\"status\":\"processing\",\"estimatedCompletion\":\"2024-01-15T10:31:00Z\",\"fileSize\":\"2.5MB\",\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:30:53 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1543.2,"time":"11:30:54s 000ms","url":"https://api.example.com/search?_dc=1705314654000&searchTerm=customer%20data","method":"GET","query":{"_dc":"1705314654000","searchTerm":"customer data"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"results\":[{\"id\":\"result-001\",\"title\":\"Customer Demographics Report\",\"type\":\"report\",\"score\":0.95},{\"id\":\"result-002\",\"title\":\"Customer Behavior Analysis\",\"type\":\"dashboard\",\"score\":0.87}],\"totalResults\":2,\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:31:00 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1987.6,"time":"11:31:01s 000ms","url":"https://api.example.com/user/settings","method":"PUT","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"settings\":{\"theme\":\"dark\",\"language\":\"en\",\"notifications\":true}}","responseBody":"{\"message\":\"Settings updated successfully\",\"updatedAt\":\"2024-01-15T10:31:05.000Z\",\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:31:05 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1765.4,"time":"11:31:05s 000ms","url":"https://api.example.com/system/health?_dc=1705314665000","method":"GET","query":{"_dc":"1705314665000"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"status\":\"healthy\",\"services\":{\"database\":\"up\",\"cache\":\"up\",\"storage\":\"up\"},\"responseTime\":\"15ms\",\"uptime\":\"99.9%\",\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:31:13 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":2432.1,"time":"11:31:14s 000ms","url":"https://api.example.com/charts/generate","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"chartType\":\"bar\",\"dataSource\":\"sales-monthly\",\"filters\":{\"year\":2024}}","responseBody":"{\"chartId\":\"chart-456\",\"imageUrl\":\"/charts/chart-456.png\",\"data\":[{\"month\":\"Jan\",\"sales\":45000},{\"month\":\"Feb\",\"sales\":52000},{\"month\":\"Mar\",\"sales\":48000}],\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:31:19 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1321.9,"time":"11:31:20s 000ms","url":"https://api.example.com/notifications?_dc=1705314679500&page=1&limit=50","method":"GET","query":{"_dc":"1705314679500","page":"1","limit":"50"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"notifications\":[{\"id\":\"notif-001\",\"message\":\"System maintenance scheduled\",\"type\":\"info\",\"timestamp\":\"2024-01-15T10:00:00Z\"},{\"id\":\"notif-002\",\"message\":\"Report generation completed\",\"type\":\"success\",\"timestamp\":\"2024-01-15T09:45:00Z\"}],\"unreadCount\":2,\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:31:24 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":2234.7,"time":"11:31:25s 000ms","url":"https://api.example.com/system/backup","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"backupType\":\"incremental\",\"destination\":\"cloud-storage\"}","responseBody":"{\"backupId\":\"backup-789\",\"status\":\"initiated\",\"estimatedDuration\":\"15 minutes\",\"size\":\"1.2GB\",\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:31:34 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1654.3,"time":"11:31:35s 000ms","url":"https://api.example.com/analytics/traffic?_dc=1705314694500&timeRange=7d","method":"GET","query":{"_dc":"1705314694500","timeRange":"7d"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"traffic\":{\"totalVisits\":15420,\"uniqueVisitors\":8734,\"pageViews\":42156,\"bounceRate\":0.32},\"topPages\":[\"/dashboard\",\"/reports\",\"/settings\"],\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:31:42 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1789.4,"time":"11:31:43s 000ms","url":"https://api.example.com/email/send","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"templateId\":\"email-001\",\"recipients\":[\"user1@example.com\",\"user2@example.com\"],\"subject\":\"Weekly Report\"}","responseBody":"{\"messageId\":\"msg-456\",\"status\":\"sent\",\"recipientCount\":2,\"deliveryTime\":\"2024-01-15T10:31:50.000Z\",\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:31:49 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":2432.8,"time":"11:31:50s 000ms","url":"https://api.example.com/cache/stats?_dc=1705314710000","method":"GET","query":{"_dc":"1705314710000"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"cache\":{\"hitRate\":0.94,\"missRate\":0.06,\"totalRequests\":125000,\"cacheSize\":\"2.1GB\",\"evictions\":342},\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:31:55 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1765.2,"time":"11:31:56s 000ms","url":"https://api.example.com/data/sync","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"source\":\"database\",\"destination\":\"warehouse\",\"tables\":[\"users\",\"orders\",\"products\"]}","responseBody":"{\"syncId\":\"sync-123\",\"status\":\"in-progress\",\"tablesProcessed\":1,\"totalTables\":3,\"recordsTransferred\":15420,\"estimatedCompletion\":\"2024-01-15T10:32:15Z\",\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:32:04 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1567.1,"time":"11:32:05s 000ms","url":"https://api.example.com/logs/recent?_dc=1705314725000&format=json","method":"GET","query":{"_dc":"1705314725000","format":"json"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"logs\":[{\"timestamp\":\"2024-01-15T10:32:00Z\",\"level\":\"INFO\",\"message\":\"User login successful\",\"userId\":\"user-123\"},{\"timestamp\":\"2024-01-15T10:31:55Z\",\"level\":\"DEBUG\",\"message\":\"Cache hit for key: user-profile-123\"}],\"totalLogs\":2,\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:32:09 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1832.6,"time":"11:32:10s 000ms","url":"https://api.example.com/modules/install","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"moduleId\":\"user-management\",\"version\":\"2.1.0\"}","responseBody":"{\"installId\":\"install-xyz789\",\"status\":\"installing\",\"progress\":45,\"estimatedCompletion\":\"2024-01-15T10:32:25Z\",\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:32:17 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":2123.7,"time":"11:32:18s 000ms","url":"https://api.example.com/file-system/scan?_dc=1705314738000&depth=3","method":"GET","query":{"_dc":"1705314738000","depth":"3"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"scan\":{\"totalFiles\":2847,\"totalSize\":\"1.8GB\",\"directories\":156,\"largestFile\":\"/uploads/video.mp4\"},\"structure\":[{\"name\":\"documents\",\"type\":\"folder\",\"size\":\"450MB\"},{\"name\":\"images\",\"type\":\"folder\",\"size\":\"890MB\"}],\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:32:27 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1576.3,"time":"11:32:28s 000ms","url":"https://api.example.com/monitoring/alerts/create","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"alertType\":\"performance\",\"threshold\":{\"cpu\":80,\"memory\":90},\"notifications\":[\"email\",\"sms\"]}","responseBody":"{\"alertId\":\"alert-perf-001\",\"status\":\"active\",\"createdAt\":\"2024-01-15T10:32:32Z\",\"nextCheck\":\"2024-01-15T10:33:00Z\",\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:32:32 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1234.9,"time":"11:32:33s 000ms","url":"https://api.example.com/metrics/performance?_dc=1705314753000&metric=response-time&period=1h","method":"GET","query":{"_dc":"1705314753000","metric":"response-time","period":"1h"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"metrics\":{\"averageResponseTime\":124.5,\"maxResponseTime\":892.3,\"minResponseTime\":23.1,\"p95\":456.2,\"p99\":743.8},\"dataPoints\":60,\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:32:39 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1456.3,"time":"11:32:40s 000ms","url":"https://api.example.com/system/maintenance","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"action\":\"cleanup\",\"olderThan\":\"30d\",\"types\":[\"temp\",\"logs\",\"cache\"]}","responseBody":"{\"maintenanceId\":\"maint-456\",\"status\":\"running\",\"filesProcessed\":1247,\"spaceFreed\":\"234MB\",\"estimatedCompletion\":\"2024-01-15T10:33:00Z\",\"success\":true}","responseHeaders":{"cache-control":"no-store, must-revalidate, no-cache","connection":"keep-alive","content-encoding":"gzip","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:32:48 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":156.7,"time":"11:32:50s 000ms","url":"https://api.example.com/ping","method":"GET","query":{},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"status\":\"ok\",\"timestamp\":\"2024-01-15T10:32:50.157Z\"}","responseHeaders":{"cache-control":"no-cache","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:32:50 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":892.4,"time":"11:32:51s 000ms","url":"https://api.example.com/cart/add","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"productId\":\"prod-456\",\"quantity\":2}","responseBody":"{\"cartId\":\"cart-789\",\"itemCount\":3,\"total\":199.98,\"success\":true}","responseHeaders":{"cache-control":"no-cache","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:32:51 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1234.6,"time":"11:32:52s 000ms","url":"https://api.example.com/products/list?category=electronics&sort=price","method":"GET","query":{"category":"electronics","sort":"price"},"headers":{"X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"products\":[{\"id\":\"prod-101\",\"name\":\"Headphones\",\"price\":79.99},{\"id\":\"prod-102\",\"name\":\"Keyboard\",\"price\":45.99}],\"total\":2,\"success\":true}","responseHeaders":{"cache-control":"public, max-age=300","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:32:53 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":2198.3,"time":"11:32:54s 000ms","url":"https://api.example.com/support/ticket","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"message\":\"Hello, support team!\",\"category\":\"technical\",\"priority\":\"medium\"}","responseBody":"{\"ticketId\":\"ticket-567\",\"status\":\"open\",\"assignedTo\":\"support-agent-1\",\"estimatedResponse\":\"2 hours\",\"success\":true}","responseHeaders":{"cache-control":"no-cache","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:32:56 GMT"},"statusCode":201,"highDuration":3000,"isSlow":false},{"duration":534.2,"time":"11:32:57s 000ms","url":"https://api.example.com/weather/current","method":"GET","query":{},"headers":{"X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"temperature\":22,\"humidity\":65,\"condition\":\"sunny\",\"windSpeed\":12,\"success\":true}","responseHeaders":{"cache-control":"public, max-age=600","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:32:57 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":3456.7,"time":"11:32:58s 000ms","url":"https://api.example.com/orders/create","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"orderId\":\"order-789\",\"items\":[{\"productId\":\"prod-123\",\"quantity\":1}],\"shippingAddress\":{\"street\":\"123 Main St\",\"city\":\"New York\",\"zip\":\"10001\"}}","responseBody":"{\"orderId\":\"order-789\",\"status\":\"confirmed\",\"total\":299.99,\"estimatedDelivery\":\"2024-01-20\",\"success\":true}","responseHeaders":{"cache-control":"no-cache","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:01 GMT"},"statusCode":201,"highDuration":3000,"isSlow":true},{"duration":287.5,"time":"11:33:02s 000ms","url":"https://api.example.com/cache/clear","method":"DELETE","query":{},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"message\":\"Cache cleared successfully\",\"itemsRemoved\":1542,\"success\":true}","responseHeaders":{"cache-control":"no-cache","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:02 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1876.4,"time":"11:33:03s 000ms","url":"https://api.example.com/blog/posts?page=1&size=10","method":"GET","query":{"page":"1","size":"10"},"headers":{"X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"posts\":[{\"id\":\"post-001\",\"title\":\"Getting Started with APIs\",\"author\":\"John Smith\",\"publishedAt\":\"2024-01-10T12:00:00Z\"}],\"totalPages\":5,\"success\":true}","responseHeaders":{"cache-control":"public, max-age=3600","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:04 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":743.8,"time":"11:33:05s 000ms","url":"https://api.example.com/user/preferences","method":"PUT","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"email\":\"user@example.com\",\"preferences\":{\"newsletter\":true,\"notifications\":false}}","responseBody":"{\"message\":\"Preferences updated\",\"updatedAt\":\"2024-01-15T10:33:05.744Z\",\"success\":true}","responseHeaders":{"cache-control":"no-cache","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:05 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":123.7,"time":"11:33:06s 000ms","url":"https://api.example.com/version","method":"GET","query":{},"headers":{"X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"version\":\"1.2.3\",\"buildDate\":\"2024-01-10\",\"environment\":\"production\"}","responseHeaders":{"cache-control":"public, max-age=86400","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:06 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":4567.2,"time":"11:33:07s 000ms","url":"https://api.example.com/feedback/submit","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"feedbackType\":\"bug\",\"description\":\"The submit button is not working on mobile devices\",\"priority\":\"high\",\"userAgent\":\"Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)\"}","responseBody":"{\"feedbackId\":\"fb-456\",\"status\":\"received\",\"assignedTo\":\"dev-team\",\"priorityLevel\":\"high\",\"success\":true}","responseHeaders":{"cache-control":"no-cache","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:11 GMT"},"statusCode":201,"highDuration":3000,"isSlow":true},{"duration":2341.9,"time":"11:33:12s 000ms","url":"https://api.example.com/activity/log?userId=user-456&startDate=2024-01-01","method":"GET","query":{"userId":"user-456","startDate":"2024-01-01"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"activities\":[{\"action\":\"login\",\"timestamp\":\"2024-01-15T09:00:00Z\"},{\"action\":\"view_page\",\"page\":\"/dashboard\",\"timestamp\":\"2024-01-15T09:01:00Z\"}],\"totalActivities\":47,\"success\":true}","responseHeaders":{"cache-control":"private, max-age=300","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:14 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1567.3,"time":"11:33:15s 000ms","url":"https://api.example.com/auth/request-reset","method":"POST","query":{},"headers":{"Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"type\":\"password_reset\",\"email\":\"user@example.com\"}","responseBody":"{\"message\":\"Password reset email sent\",\"resetToken\":\"reset-abc123\",\"expiresAt\":\"2024-01-15T11:33:15Z\",\"success\":true}","responseHeaders":{"cache-control":"no-cache","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:16 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":398.6,"time":"11:33:17s 000ms","url":"https://api.example.com/countries/list","method":"GET","query":{},"headers":{"X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"countries\":[{\"code\":\"US\",\"name\":\"United States\"},{\"code\":\"CA\",\"name\":\"Canada\"},{\"code\":\"UK\",\"name\":\"United Kingdom\"}],\"total\":195,\"success\":true}","responseHeaders":{"cache-control":"public, max-age=86400","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:17 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":867.4,"time":"11:33:18s 000ms","url":"https://api.example.com/currency/convert","method":"POST","query":{},"headers":{"Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"from\":\"USD\",\"to\":\"EUR\",\"amount\":100}","responseBody":"{\"from\":\"USD\",\"to\":\"EUR\",\"amount\":100,\"convertedAmount\":85.42,\"exchangeRate\":0.8542,\"success\":true}","responseHeaders":{"cache-control":"public, max-age=300","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:18 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":2234.7,"time":"11:33:19s 000ms","url":"https://api.example.com/alerts/list?type=security&severity=high","method":"GET","query":{"type":"security","severity":"high"},"headers":{"X-Csrf-Token":"demo-token-123","X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"alerts\":[{\"id\":\"alert-001\",\"message\":\"Suspicious login attempt detected\",\"severity\":\"high\",\"timestamp\":\"2024-01-15T10:30:00Z\"}],\"totalAlerts\":1,\"success\":true}","responseHeaders":{"cache-control":"no-cache","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:21 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":1345.8,"time":"11:33:22s 000ms","url":"https://api.example.com/tasks/update","method":"PUT","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"taskId\":\"task-789\",\"status\":\"completed\",\"notes\":\"All requirements met successfully\"}","responseBody":"{\"taskId\":\"task-789\",\"status\":\"completed\",\"completedAt\":\"2024-01-15T10:33:23Z\",\"success\":true}","responseHeaders":{"cache-control":"no-cache","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:23 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":234.5,"time":"11:33:24s 000ms","url":"https://api.example.com/timezone/current","method":"GET","query":{},"headers":{"X-Requested-With":"XMLHttpRequest"},"requestBody":"","responseBody":"{\"timezone\":\"UTC\",\"offset\":\"+00:00\",\"currentTime\":\"2024-01-15T10:33:24.235Z\"}","responseHeaders":{"cache-control":"public, max-age=3600","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:24 GMT"},"statusCode":200,"highDuration":3000,"isSlow":false},{"duration":5234.6,"time":"11:33:25s 000ms","url":"https://api.example.com/files/upload","method":"POST","query":{},"headers":{"X-Csrf-Token":"demo-token-123","Content-Type":"application/json","X-Requested-With":"XMLHttpRequest"},"requestBody":"{\"files\":[\"document.pdf\",\"image.jpg\"],\"destination\":\"backup-server\",\"compression\":true}","responseBody":"{\"uploadId\":\"upload-456\",\"filesUploaded\":2,\"totalSize\":\"3.2MB\",\"status\":\"completed\",\"success\":true}","responseHeaders":{"cache-control":"no-cache","connection":"keep-alive","content-type":"application/json; charset=utf-8","date":"Mon, 15 Jan 2024 10:33:30 GMT"},"statusCode":201,"highDuration":3000,"isSlow":true}];
+        const highDuration = 3000;
+        const highDurations = JSON.parse('[3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000,3000]');
+        const isSlow = JSON.parse('[false,false,true,false,false,false,true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,true,false,false,false,false,true,false,false,false,false,false,false,false,true]');
+        const isCustomHighDuration = 'false' === 'true';
+        
+        // Chart configuration
+        const config = {
+            padding: 60,
+            yAxisPadding: 60,
+            fastColor: '#48bb78',
+            fastHoverColor: '#38a169',
+            slowColor: '#f56565',
+            slowHoverColor: '#e53e3e',
+            textColor: '#2d3748',
+            gridColor: '#e2e8f0',
+            backgroundColor: '#ffffff',
+            thresholdMs: highDuration
+        };
+        
+        let hoveredIndex = -1;
+        let tooltip = null;
+        
+        // Create tooltip element
+        function createTooltip() {
+            if (tooltip) return;
+            tooltip = document.createElement('div');
+            tooltip.style.cssText = `
+                position: fixed;
+                background: rgba(15, 23, 42, 0.95);
+                color: white;
+                padding: 12px 16px;
+                border-radius: 10px;
+                font-size: 13px;
+                pointer-events: none;
+                z-index: 10000;
+                display: none;
+                box-shadow: 
+                    0 10px 25px rgba(0, 0, 0, 0.2),
+                    0 4px 10px rgba(0, 0, 0, 0.15),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+                line-height: 1.4;
+                max-width: 300px;
+                word-wrap: break-word;
+            `;
+            document.body.appendChild(tooltip);
+        }
+        
+        // Show tooltip
+        function showTooltip(x, y, label, value, url) {
+            if (!tooltip) createTooltip();
+            const isFast = value < config.thresholdMs;
+            const statusColor = isFast ? '#38a169' : '#e53e3e';
+            
+            tooltip.innerHTML = `
+                <div style="font-weight: 700; margin-bottom: 4px; font-family: 'Segoe UI', sans-serif;">
+                    📅 ${label}
+                </div>
+                <div style="font-weight: 600; margin-bottom: 3px; color: #ffffff;">
+                    ⏱️ Duration: ${value.toFixed(0)}ms
+                </div>
+                <div style="font-weight: 600; font-size: 13px; word-break: break-all;">
+                    🔗&nbsp;Url:&nbsp;&nbsp;${url}
+                </div>
+            `;
+            
+            // Position tooltip near cursor with smart positioning
+            const tooltipWidth = 200; // Approximate tooltip width
+            const tooltipHeight = 80; // Approximate tooltip height
+            const offset = 15; // Offset from cursor
+            
+            // Calculate position with boundary checks
+            let tooltipX = x + offset;
+            let tooltipY = y - tooltipHeight - offset;
+            
+            // Check right boundary
+            if (tooltipX + tooltipWidth > window.innerWidth) {
+                tooltipX = x - tooltipWidth - offset;
+            }
+            
+            // Check top boundary
+            if (tooltipY < 0) {
+                tooltipY = y + offset;
+            }
+            
+            // Check bottom boundary
+            if (tooltipY + tooltipHeight > window.innerHeight) {
+                tooltipY = y - tooltipHeight - offset;
+            }
+            
+            // Ensure tooltip doesn't go off left edge
+            if (tooltipX < 0) {
+                tooltipX = offset;
+            }
+            
+            tooltip.style.left = tooltipX + 'px';
+            tooltip.style.top = tooltipY + 'px';
+            tooltip.style.display = 'block';
+        }
+        
+        // Hide tooltip
+        function hideTooltip() {
+            if (tooltip) tooltip.style.display = 'none';
+        }
+        
+        // Resize canvas to fit container
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const scrollArea = container.parentElement;
+            const yAxisContainer = yAxisCanvas.parentElement;
+            const wrapper = scrollArea.parentElement;
+            const dpr = window.devicePixelRatio || 1;
+            const rect = wrapper.getBoundingClientRect();
+            
+            // Calculate minimum width needed for comfortable viewing
+            const minBarWidth = 30; // Minimum bar width in pixels
+            const barSpacing = 15; // Spacing between bars
+            const minWidthPerBar = minBarWidth + barSpacing;
+            // Determine Y-axis width based on media query
+            let yAxisWidth = 40;
+            if (window.matchMedia('(max-width: 768px)').matches) {
+                yAxisWidth = 28;
+            }
+            const calculatedWidth = Math.max(
+                data.length * minWidthPerBar + config.padding * 2,
+                rect.width - yAxisWidth // Subtract Y-axis width
+            );
+            
+            // Set container width to enable scrolling
+            container.style.width = calculatedWidth + 'px';
+            
+            // Setup main chart canvas
+            canvas.style.width = calculatedWidth + 'px';
+            // We need extra space for the labels
+            canvas.style.height = '100%';
+            
+            canvas.width = calculatedWidth * dpr;
+            canvas.height = rect.height * dpr;
+            
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform before scaling
+            ctx.scale(dpr, dpr);
+            ctx.imageSmoothingEnabled = true;
+            
+            // Setup Y-axis canvas
+            yAxisCanvas.style.width = yAxisWidth + 'px';
+            yAxisCanvas.style.height = rect.height + 'px';
+            yAxisCanvas.width = yAxisWidth * dpr;
+            yAxisCanvas.height = rect.height * dpr;
+            yAxisCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform before scaling
+            yAxisCtx.scale(dpr, dpr);
+            yAxisCtx.imageSmoothingEnabled = true;
+            
+            drawChart(yAxisWidth);
+        }
+        
+        // Centralized function to get bar rectangle
+        function getBarRect(index) {
+            const dpr = window.devicePixelRatio || 1;
+            const width = canvas.width / dpr;
+            const height = canvas.height / dpr;
+            const chartWidth = width - config.padding;
+            const chartHeight = height - config.padding * 2;
+            const chartX = 8;
+            const chartY = config.padding;
+
+            const minBarWidth = 30;
+            const barSpacing = 15;
+            const barWidth = Math.max(minBarWidth, (chartWidth - (data.length - 1) * barSpacing) / data.length);
+            const actualBarSpacing = data.length > 1 ? (chartWidth - data.length * barWidth) / (data.length - 1) : 0;
+
+            const value = data[index];
+            const maxValue = Math.max(...data, 0);
+            const yScale = maxValue > 0 ? chartHeight / maxValue : 1;
+            const barHeight = value * yScale;
+            const barX = chartX + index * (barWidth + actualBarSpacing);
+            const barY = chartY + chartHeight - barHeight;
+
+            return {
+                x: barX,
+                y: barY,
+                width: barWidth,
+                height: barHeight
+            };
+        }
+        window.getBarCoordinates = function(index) {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = getBarRect(index);
+            return {
+                x: Math.round(rect.x * dpr),
+                y: Math.round(rect.y * dpr),
+                width: Math.round(rect.width * dpr),
+                height: Math.round(rect.height * dpr)
+            };
+        };
+        
+        // Draw the chart
+        function drawChart(yAxisWidth = 40) {
+            const width = canvas.width / (window.devicePixelRatio || 1);
+            const height = canvas.height / (window.devicePixelRatio || 1);
+            const yAxisHeight = height;
+            
+            // Clear both canvases
+            ctx.clearRect(0, 0, width, height);
+            yAxisCtx.clearRect(0, 0, yAxisWidth, yAxisHeight);
+            
+            if (data.length === 0) {
+                // Draw "No data" message on main canvas
+                ctx.fillStyle = config.textColor;
+                ctx.font = '18px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('No performance data available', width / 2, height / 2);
+                return;
+            }
+            
+            // Calculate chart area (main chart doesn't need left padding for Y-axis anymore)
+            const chartWidth = width - config.padding;
+            const chartHeight = height - config.padding * 2;
+            const chartX = 8; // Smaller left margin
+            const chartY = config.padding;
+            
+            // Y-axis chart area - must match exactly with main chart
+            const yAxisChartHeight = chartHeight; // Same as main chart
+            const yAxisChartY = chartY; // Same Y position as main chart
+            
+            // Find max value for scaling
+            const maxValue = Math.max(...data, 0);
+            const yScale = maxValue > 0 ? chartHeight / maxValue : 1; // Use chartHeight for consistency
+            
+            // Calculate bar dimensions with consistent spacing
+            const minBarWidth = 30;
+            const barSpacing = 15;
+            const barWidth = Math.max(minBarWidth, (chartWidth - (data.length - 1) * barSpacing) / data.length);
+            const actualBarSpacing = data.length > 1 ? (chartWidth - data.length * barWidth) / (data.length - 1) : 0;
+            
+            // Draw Y-axis on the fixed canvas
+            yAxisCtx.strokeStyle = config.gridColor;
+            yAxisCtx.lineWidth = 1;
+            
+            // Draw Y-axis labels and grid lines
+            const gridLines = 5;
+            for (let i = 0; i <= gridLines; i++) {
+                const y = yAxisChartY + yAxisChartHeight - (i * yAxisChartHeight / gridLines);
+                
+                // Y-axis labels
+                if (maxValue > 0) {
+                    const value = (i * maxValue / gridLines).toFixed(0);
+                    yAxisCtx.fillStyle = config.textColor;
+                    yAxisCtx.font = '11px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+                    yAxisCtx.textAlign = 'right';
+                    yAxisCtx.fillText(value + 'ms', yAxisWidth - 2, y + 4);
+                }
+            }
+            
+            // Draw Y-axis title on fixed canvas
+            yAxisCtx.fillStyle = config.textColor;
+            yAxisCtx.font = '13px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+            yAxisCtx.textAlign = 'center';
+            yAxisCtx.fontWeight = '600';
+            
+            yAxisCtx.save();
+            yAxisCtx.translate(yAxisWidth / 2 - 24, yAxisHeight / 2); // Add 24px padding from right
+            yAxisCtx.rotate(-Math.PI / 2);
+            yAxisCtx.fillText('📈 Duration (ms)', 0, 0);
+            yAxisCtx.restore();
+            
+            // Draw main chart content on scrollable canvas
+            ctx.strokeStyle = config.gridColor;
+            ctx.lineWidth = 1;
+            
+            // Horizontal grid lines (extended from Y-axis)
+            for (let i = 0; i <= gridLines; i++) {
+                const y = chartY + chartHeight - (i * chartHeight / gridLines);
+                ctx.beginPath();
+                ctx.moveTo(chartX, y);
+                ctx.lineTo(chartX + chartWidth, y);
+                ctx.stroke();
+            }
+            
+            // Draw bars
+            data.forEach((value, index) => {
+                const { x: barX, y: barY, width: barWidth, height: barHeight } = getBarRect(index);
+                
+                // Determine color based on per-request threshold
+                let isBarSlow = false;
+                if (isCustomHighDuration === 'true' || isCustomHighDuration === true) {
+                    isBarSlow = isSlow[index];
+                } else {
+                    isBarSlow = value >= config.thresholdMs;
+                }
+                const isFast = !isBarSlow;
+                const baseColor = isFast ? config.fastColor : config.slowColor;
+                const hoverColor = isFast ? config.fastHoverColor : config.slowHoverColor;
+                const currentColor = hoveredIndex === index ? hoverColor : baseColor;
+                
+                // Create gradient with performance-based colors
+                const gradient = ctx.createLinearGradient(0, barY, 0, barY + barHeight);
+                gradient.addColorStop(0, currentColor);
+                gradient.addColorStop(0.5, currentColor + 'E6'); // 90% opacity
+                gradient.addColorStop(1, currentColor + 'B3'); // 70% opacity
+                
+                // Draw bar with rounded corners effect
+                ctx.fillStyle = gradient;
+                ctx.fillRect(barX, barY, barWidth, barHeight);
+                
+                // Add subtle inner shadow for depth
+                const shadowGradient = ctx.createLinearGradient(barX, barY, barX + barWidth, barY);
+                shadowGradient.addColorStop(0, 'rgba(0, 0, 0, 0.05)');
+                shadowGradient.addColorStop(0.3, 'rgba(0, 0, 0, 0.01)');
+                shadowGradient.addColorStop(1, 'rgba(255, 255, 255, 0.05)');
+                
+                ctx.fillStyle = shadowGradient;
+                ctx.fillRect(barX, barY, barWidth, barHeight);
+                
+                // Draw bar border with enhanced styling
+                ctx.strokeStyle = currentColor;
+                ctx.lineWidth = hoveredIndex === index ? 3 : 2;
+                ctx.strokeRect(barX, barY, barWidth, barHeight);
+                
+                // Add performance indicator glow for hovered bars
+                if (hoveredIndex === index) {
+                    ctx.shadowColor = currentColor;
+                    ctx.shadowBlur = 15;
+                    ctx.shadowOffsetX = 0;
+                    ctx.shadowOffsetY = 0;
+                    ctx.strokeRect(barX - 1, barY - 1, barWidth + 2, barHeight + 2);
+                    ctx.shadowBlur = 0;
+                }
+            });
+            
+            // Draw X-axis labels
+            ctx.fillStyle = config.textColor;
+            ctx.font = '11px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+            ctx.textAlign = 'center';
+            
+            labels.forEach((label, index) => {
+                const x = chartX + index * (barWidth + actualBarSpacing) + barWidth / 2;
+                const y = chartY + chartHeight + 20;
+                
+                // Rotate text for better readability
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(-Math.PI / 4);
+                ctx.fillText(label.length > 15 ? label.substring(0, 12) + '...' : label, 0, 0);
+                ctx.restore();
+            });
+            
+            // Draw X-axis title
+            ctx.fillStyle = config.textColor;
+            ctx.font = '15px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fontWeight = '600';
+            ctx.fillText('⏰ Time Period', width / 2, height);
+        }
+        
+        // Handle mouse events for interactivity
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const chartWidth = canvas.width / (window.devicePixelRatio || 1) - config.padding;
+            const chartX = 8; // Small left margin to match drawChart
+            // Calculate bar dimensions (same as in drawChart)
+            const minBarWidth = 30;
+            const barSpacing = 15;
+            const barWidth = Math.max(minBarWidth, (chartWidth - (data.length - 1) * barSpacing) / data.length);
+            const actualBarSpacing = data.length > 1 ? (chartWidth - data.length * barWidth) / (data.length - 1) : 0;
+            // Find which bar is being hovered
+            let newHoveredIndex = -1;
+            for (let i = 0; i < data.length; i++) {
+                const { x: barX, width: barWidth } = getBarRect(i);
+                if (x >= barX && x <= barX + barWidth) {
+                    newHoveredIndex = i;
+                    break;
+                }
+            }
+            
+            // Update hover state
+            if (newHoveredIndex !== hoveredIndex) {
+                hoveredIndex = newHoveredIndex;
+                drawChart();
+                
+                if (hoveredIndex >= 0) {
+                    // Use global mouse coordinates for fixed positioning
+                    showTooltip(e.clientX, e.clientY, labels[hoveredIndex], data[hoveredIndex], tableData[hoveredIndex].url);
+                    canvas.style.cursor = 'pointer';
+                    canvas.title = 'Click to view details in table below';
+                } else {
+                    hideTooltip();
+                    canvas.style.cursor = 'default';
+                    canvas.title = '';
+                }
+            } else if (hoveredIndex >= 0) {
+                // Update tooltip position even when hovering the same bar
+                showTooltip(e.clientX, e.clientY, labels[hoveredIndex], data[hoveredIndex], tableData[hoveredIndex].url);
+            }
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            hoveredIndex = -1;
+            drawChart();
+            hideTooltip();
+            canvas.style.cursor = 'default';
+        });
+        
+        // Handle click events for scrolling to table row
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const chartWidth = canvas.width / (window.devicePixelRatio || 1) - config.padding;
+            const chartX = 8; // Small left margin to match drawChart
+            // Calculate bar dimensions (same as in drawChart and mousemove)
+            const minBarWidth = 30;
+            const barSpacing = 15;
+            const barWidth = Math.max(minBarWidth, (chartWidth - (data.length - 1) * barSpacing) / data.length);
+            const actualBarSpacing = data.length > 1 ? (chartWidth - data.length * barWidth) / (data.length - 1) : 0;
+            // Find which bar was clicked
+            let clickedIndex = -1;
+            for (let i = 0; i < data.length; i++) {
+                const { x: barX, width: barWidth } = getBarRect(i);
+                if (x >= barX && x <= barX + barWidth) {
+                    clickedIndex = i;
+                    break;
+                }
+            }
+            
+            if (clickedIndex >= 0) {
+                scrollToTableRow(clickedIndex);
+            }
+        });
+        
+        // Store original indices to handle sorting
+        let originalIndices = [];
+        
+        // Populate the table
+        function populateTable() {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+            
+            // Update original indices mapping
+            originalIndices = tableData.map((row, index) => {
+                return { ...row, originalIndex: row.originalIndex !== undefined ? row.originalIndex : index };
+            });
+            
+            // Extract all URLs and process them sequentially for shortening
+            const allUrls = tableData.map(row => String(row.url));
+            const displayUrls = processUrlsForDisplay(allUrls);
+            
+            tableData.forEach((row, index) => {
+                // Get the original index for this row
+                const originalIndex = row.originalIndex !== undefined ? row.originalIndex : index;
+                
+                // Main row
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.setAttribute('data-original-index', originalIndex);
+                tr.setAttribute('data-testid', `table-row-${originalIndex}`);
+                
+                // Expand button cell
+                const expandCell = document.createElement('td');
+                const expandBtn = document.createElement('button');
+                expandBtn.className = 'expand-btn';
+                expandBtn.setAttribute('data-testid', `expand-btn-${originalIndex}`);
+                expandBtn.innerHTML = '▶';
+                expandBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleRow(originalIndex, index);
+                };
+                expandCell.appendChild(expandBtn);
+                tr.appendChild(expandCell);
+                
+                // URL cell with sequential shortening
+                const urlCell = document.createElement('td');
+                urlCell.className = 'url-cell';
+                const originalUrl = String(row.url);
+                const displayUrl = displayUrls[index];
+                urlCell.textContent = displayUrl;
+                urlCell.title = originalUrl; // Always show full URL on hover
+                
+                // Add visual indicator if URL was shortened
+                if (displayUrl !== originalUrl) {
+                    urlCell.style.position = 'relative';
+                    urlCell.classList.add('shortened-url');
+                }
+                
+                tr.appendChild(urlCell);
+                
+                // Method cell
+                const methodCell = document.createElement('td');
+                methodCell.textContent = row.method || 'GET';
+                methodCell.style.fontWeight = '600';
+                methodCell.style.color = getMethodColor(row.method || 'GET');
+                tr.appendChild(methodCell);
+                
+                // Time cell
+                const timeCell = document.createElement('td');
+                timeCell.className = 'time-cell';
+                timeCell.textContent = row.time;
+                tr.appendChild(timeCell);
+                
+                // Duration cell
+                const durationCell = document.createElement('td');
+                let isRowSlow = false;
+                if (isCustomHighDuration === 'true' || isCustomHighDuration === true) {
+                    isRowSlow = row.isSlow;
+                } else {
+                    isRowSlow = row.duration >= highDuration;
+                }
+                durationCell.className = `duration-cell ${isRowSlow ? "duration-slow" : "duration-fast"}`;
+                durationCell.setAttribute('data-testid', `duration-cell-${originalIndex}`);
+                durationCell.setAttribute('data-duration-type', isRowSlow ? 'slow' : 'fast');
+                durationCell.textContent = `${row.duration.toFixed(0)}ms`;
+                tr.appendChild(durationCell);
+                
+                // Add click handler to entire row
+                tr.onclick = () => toggleRow(originalIndex, index);
+                
+                tableBody.appendChild(tr);
+                
+                // Expandable content row
+                const expandRow = document.createElement('tr');
+                expandRow.className = 'expandable-content';
+                expandRow.id = `expand-${originalIndex}`;
+                expandRow.setAttribute('data-testid', `expandable-row-${originalIndex}`);
+                
+                const expandTd = document.createElement('td');
+                expandTd.colSpan = 5;
+                
+                const detailsDiv = document.createElement('div');
+                detailsDiv.className = 'expandable-details';
+                
+                // Full URL section (only show if URL was shortened)
+                if (displayUrl !== String(row.url)) {
+                    const fullUrlSection = document.createElement('div');
+                    fullUrlSection.className = 'details-section';
+                    fullUrlSection.setAttribute('data-testid', `full-url-section-${originalIndex}`);
+                    fullUrlSection.innerHTML = `
+                        <div class="details-title">
+                            🔗 Full URL
+                        </div>
+                        <div class="details-content" style="word-break: break-all; font-family: monospace;" data-testid="full-url-content-${originalIndex}">
+                            ${String(row.url)}
+                        </div>
+                    `;
+                    detailsDiv.appendChild(fullUrlSection);
+                }
+                
+                // Parameters section
+                const paramsSection = document.createElement('div');
+                paramsSection.className = 'details-section';
+                paramsSection.setAttribute('data-testid', `params-section-${originalIndex}`);
+                paramsSection.innerHTML = `
+                    <div class="details-title">
+                        🔍 URL Parameters
+                    </div>
+                    <div class="details-content params" id="params-${originalIndex}" data-testid="params-content-${originalIndex}">
+                        ${formatParameters(row.query || {})}
+                    </div>
+                `;
+                detailsDiv.appendChild(paramsSection);
+                
+                // Headers section
+                const headersSection = document.createElement('div');
+                headersSection.className = 'details-section';
+                headersSection.setAttribute('data-testid', `headers-section-${originalIndex}`);
+                headersSection.innerHTML = `
+                    <div class="details-title">
+                        📋 Request Headers
+                    </div>
+                    <div class="details-content params" id="headers-${originalIndex}" data-testid="headers-content-${originalIndex}">
+                        ${formatParameters(row.headers || {})}
+                    </div>
+                `;
+                detailsDiv.appendChild(headersSection);
+                
+                // Request body section
+                const bodySection = document.createElement('div');
+                bodySection.className = 'details-section';
+                bodySection.setAttribute('data-testid', `request-body-section-${originalIndex}`);
+                // No extra space for the request body to be well formatted
+                bodySection.innerHTML = `
+                    <div class="details-title">📄 Request Body</div>
+                    <div class="details-content json" id="request-body-${originalIndex}" data-testid="request-body-content-${originalIndex}">${formatRequestBody(row.requestBody || '')}</div>
+                `;
+                detailsDiv.appendChild(bodySection);
+                
+                // Response headers section
+                const responseHeadersSection = document.createElement('div');
+                responseHeadersSection.className = 'details-section';
+                responseHeadersSection.setAttribute('data-testid', `response-headers-section-${originalIndex}`);
+                responseHeadersSection.innerHTML = `
+                    <div class="details-title">
+                        📨 Response Headers ${row.statusCode ? `(Status: ${row.statusCode})` : ''}
+                    </div>
+                    <div class="details-content params" id="response-headers-${originalIndex}" data-testid="response-headers-content-${originalIndex}">
+                        ${formatParameters(row.responseHeaders || {})}
+                    </div>
+                `;
+                detailsDiv.appendChild(responseHeadersSection);
+                
+                // Response body section
+                const responseBodySection = document.createElement('div');
+                responseBodySection.className = 'details-section';
+                responseBodySection.setAttribute('data-testid', `response-body-section-${originalIndex}`);
+                responseBodySection.innerHTML = `
+                    <div class="details-title">📥 Response Body</div>
+                    <div class="details-content json" id="response-body-${originalIndex}" data-testid="response-body-content-${originalIndex}">${formatRequestBody(row.responseBody || '')}</div>
+                `;
+                detailsDiv.appendChild(responseBodySection);
+                
+                expandTd.appendChild(detailsDiv);
+                expandRow.appendChild(expandTd);
+                tableBody.appendChild(expandRow);
+            });
+        }
+        
+        // Helper function to get method color
+        function getMethodColor(method) {
+            const colors = {
+                'GET': '#22c55e',
+                'POST': '#3b82f6', 
+                'PUT': '#f59e0b',
+                'DELETE': '#ef4444',
+                'PATCH': '#8b5cf6',
+                'HEAD': '#6b7280',
+                'OPTIONS': '#6b7280'
+            };
+            return colors[method.toUpperCase()] || '#6b7280';
+        }
+        
+        // Helper function to format parameters
+        function formatParameters(params) {
+            const keys = Object.keys(params);
+            if (keys.length === 0) {
+                return '<div class="empty-state">No parameters</div>';
+            }
+            
+            return keys.map(key => `
+                <div class="param-item">
+                    <div class="param-key">${key}:</div>
+                    <div class="param-value">${params[key]}</div>
+                </div>
+            `).join('');
+        }
+        
+        // Helper function to format request body
+        function formatRequestBody(body) {
+            if (!body || body.trim() === '') {
+                return '<div class="empty-state">No request body</div>';
+            }
+
+            const isTruncated = body.trim().endsWith('...');
+            let bodyToFormat = body;
+            if (isTruncated) {
+                bodyToFormat = body.trim().slice(0, -3); // Remove '...'
+            }
+
+            // Try to parse as JSON
+            try {
+                const parsed = JSON.parse(bodyToFormat);
+                const pretty = JSON.stringify(parsed, null, 2);
+                return isTruncated ? pretty + '...' : pretty;
+            } catch (err) {
+                // If not valid JSON, try to pretty-print as much as possible
+                if (isTruncated) {
+                    // Custom pretty-print for truncated JSON-like string
+                    let result = '';
+                    let indent = 0;
+                    let inString = false;
+                    let lastChar = '';
+                    const tab = '  ';
+                    for (let i = 0; i < bodyToFormat.length; i++) {
+                        const char = bodyToFormat[i];
+                        if (char === '"' && lastChar !== '\\') {
+                            inString = !inString;
+                        }
+                        if (!inString) {
+                            if (char === '{' || char === '[') {
+                                result += char + '\n' + tab.repeat(++indent);
+                            } else if (char === '}' || char === ']') {
+                                result += '\n' + tab.repeat(--indent) + char;
+                            } else if (char === ',') {
+                                result += char + '\n' + tab.repeat(indent);
+                            } else if (char === ':') {
+                                result += ': ';
+                            } else if (char === '\n' || char === '\r') {
+                                // skip
+                            } else {
+                                result += char;
+                            }
+                        } else {
+                            result += char;
+                        }
+                        lastChar = char;
+                    }
+                    return result.trimEnd() + '...';
+                }
+                // Log error for debugging
+                if (typeof console !== 'undefined') {
+                    console.error('formatRequestBody error:', err, body);
+                }
+                return body;
+            }
+        }
+        
+        // Toggle row expansion
+        function toggleRow(originalIndex, currentIndex) {
+            const expandRow = document.getElementById(`expand-${originalIndex}`);
+            const expandBtn = document.querySelector(`tr:nth-child(${(currentIndex * 2) + 1}) .expand-btn`);
+            
+            if (expandRow && expandRow.classList.contains('show')) {
+                expandRow.classList.remove('show');
+                if (expandBtn) {
+                    expandBtn.classList.remove('expanded');
+                    expandBtn.innerHTML = '▶';
+                }
+            } else if (expandRow) {
+                expandRow.classList.add('show');
+                if (expandBtn) {
+                    expandBtn.classList.add('expanded');
+                    expandBtn.innerHTML = '▼';
+                }
+            }
+        }
+        
+        // Scroll to and expand table row
+        function scrollToTableRow(originalIndex) {
+            // First scroll to the table container
+            const tableContainer = document.querySelector('.table-container');
+            if (tableContainer) {
+                tableContainer.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+                
+                // Wait for scroll to complete, then find and expand the row
+                setTimeout(() => {
+                    // Find the row with the matching original index
+                    const targetRow = document.querySelector(`tr[data-original-index="${originalIndex}"]`);
+                    
+                    if (targetRow) {
+                        // Scroll to the specific row
+                        targetRow.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center' 
+                        });
+                        
+                        // Find the expand row and button
+                        const expandRow = document.getElementById(`expand-${originalIndex}`);
+                        const expandBtn = targetRow.querySelector('.expand-btn');
+                        
+                        setTimeout(() => {
+                            // Expand the row if it's not already expanded
+                            if (expandRow && expandBtn && !expandRow.classList.contains('show')) {
+                                expandRow.classList.add('show');
+                                expandBtn.classList.add('expanded');
+                                expandBtn.innerHTML = '▼';
+                            }
+                            
+                            // Add a subtle highlight effect
+                            targetRow.style.backgroundColor = 'rgba(99, 102, 241, 0.1)';
+                            setTimeout(() => {
+                                targetRow.style.backgroundColor = '';
+                            }, 2000);
+                        }, 300);
+                    } else {
+                        console.warn('Could not find table row for original index:', originalIndex);
+                    }
+                }, 500);
+            }
+        }
+        
+        // Initialize original indices
+        tableData.forEach((row, index) => {
+            if (row.originalIndex === undefined) {
+                row.originalIndex = index;
+            }
+        });
+        
+        // Initial setup
+        populateTable();
+        resizeCanvas();
+        
+        // Initialize sorting functionality
+        initializeSorting();
+        
+        // Show/hide scroll indicator based on content width
+        function updateScrollIndicator() {
+            const scrollIndicator = document.getElementById('scrollIndicator');
+            const scrollArea = document.querySelector('.chart-scroll-area');
+            const content = document.querySelector('.chart-content');
+            
+            if (scrollIndicator && scrollArea && content) {
+                const isScrollable = content.scrollWidth > scrollArea.clientWidth;
+                scrollIndicator.style.display = isScrollable ? 'block' : 'none';
+            }
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            updateScrollIndicator();
+        });
+        
+        // Update scroll indicator after initial setup
+        setTimeout(updateScrollIndicator, 100);
+        
+        // Animation on load
+        let animationProgress = 0;
+        const originalData = [...data];
+        
+        function animate() {
+            animationProgress += 0.02;
+            if (animationProgress <= 1) {
+                data.forEach((value, index) => {
+                    data[index] = originalData[index] * Math.min(animationProgress, 1);
+                });
+                drawChart();
+                requestAnimationFrame(animate);
+            } else {
+                data.forEach((value, index) => {
+                    data[index] = originalData[index];
+                });
+                drawChart();
+            }
+        }
+        
+        animate();
+
+        // Helper function to find common prefix between two URLs
+        function findCommonPrefix(url1, url2) {
+            const str1 = String(url1);
+            const str2 = String(url2);
+            let commonPrefix = '';
+            
+            const minLength = Math.min(str1.length, str2.length);
+            for (let i = 0; i < minLength; i++) {
+                if (str1[i] === str2[i]) {
+                    commonPrefix += str1[i];
+                } else {
+                    break;
+                }
+            }
+            
+            // Only consider meaningful prefixes and end at logical boundaries
+            if (commonPrefix.length < 15) return '';
+            
+            // Try to end at a logical boundary
+            const lastSlash = commonPrefix.lastIndexOf('/');
+            const lastQuestion = commonPrefix.lastIndexOf('?');
+            const lastAmpersand = commonPrefix.lastIndexOf('&');
+            
+            const boundaries = [lastSlash, lastQuestion, lastAmpersand].filter(pos => pos > 10);
+            if (boundaries.length > 0) {
+                const lastBoundary = Math.max(...boundaries);
+                if (lastBoundary > commonPrefix.length * 0.6) {
+                    commonPrefix = commonPrefix.substring(0, lastBoundary + 1);
+                }
+            }
+            
+            return commonPrefix;
+        }
+        
+        // Helper function to process URLs sequentially for shortening
+        function processUrlsForDisplay(urls) {
+            const urlStrings = urls.map(url => String(url));
+            const processedUrls = [];
+            const seenPatterns = new Map(); // pattern -> first occurrence index
+            
+            for (let i = 0; i < urlStrings.length; i++) {
+                const currentUrl = urlStrings[i];
+                let shouldShorten = false;
+                let patternToUse = '';
+                
+                // Check if this URL shares a pattern with any previous URL
+                for (const [pattern, firstIndex] of seenPatterns.entries()) {
+                    if (currentUrl.startsWith(pattern)) {
+                        shouldShorten = true;
+                        patternToUse = pattern;
+                        break;
+                    }
+                }
+                
+                if (shouldShorten) {
+                    // Shorten using the existing pattern
+                    const shortened = '...' + currentUrl.substring(patternToUse.length);
+                    processedUrls.push(shortened);
+                } else {
+                    // This is a new pattern, check if we can establish a pattern with future URLs
+                    let newPattern = '';
+                    
+                    // Look ahead to find if this URL shares a pattern with upcoming URLs
+                    for (let j = i + 1; j < urlStrings.length; j++) {
+                        const commonPrefix = findCommonPrefix(currentUrl, urlStrings[j]);
+                        if (commonPrefix && commonPrefix.length >= 15) {
+                            newPattern = commonPrefix;
+                            break;
+                        }
+                    }
+                    
+                    if (newPattern) {
+                        // Store this pattern for future use
+                        seenPatterns.set(newPattern, i);
+                    }
+                    
+                    // Show the full URL for the first occurrence
+                    processedUrls.push(currentUrl);
+                }
+            }
+            
+            return processedUrls;
+        }
+
+        // Sorting state
+        let currentSort = {
+            column: null,
+            direction: 'asc' // 'asc' or 'desc'
+        };
+        
+        // Helper function to parse time for sorting
+        function parseTimeForSort(timeString) {
+            // Convert "HH:MM:SSs MMMms" format to milliseconds for comparison
+            const match = timeString.match(/(\d{2}):(\d{2}):(\d{2})s (\d+)ms/);
+            if (!match) return 0;
+            
+            const [, hours, minutes, seconds, milliseconds] = match;
+            return (parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds)) * 1000 + parseInt(milliseconds);
+        }
+        
+        // Helper function to get sort value from row data
+        function getSortValue(row, column) {
+            switch (column) {
+                case 'url':
+                    return String(row.url).toLowerCase();
+                case 'method':
+                    return (row.method || 'GET').toLowerCase();
+                case 'time':
+                    return parseTimeForSort(row.time);
+                case 'duration':
+                    return row.duration || 0;
+                default:
+                    return '';
+            }
+        }
+        
+        // Sort function
+        function sortTableData(column) {
+            // Determine sort direction
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+            
+            // Ensure original indices are preserved before sorting
+            tableData.forEach((row, index) => {
+                if (row.originalIndex === undefined) {
+                    row.originalIndex = index;
+                }
+            });
+            
+            // Sort the data
+            tableData.sort((a, b) => {
+                const aValue = getSortValue(a, column);
+                const bValue = getSortValue(b, column);
+                
+                let comparison = 0;
+                if (aValue < bValue) {
+                    comparison = -1;
+                } else if (aValue > bValue) {
+                    comparison = 1;
+                }
+                
+                return currentSort.direction === 'asc' ? comparison : -comparison;
+            });
+            
+            // Update header classes
+            updateSortHeaders();
+            
+            // Re-populate the table
+            populateTable();
+        }
+        
+        // Update header sort indicators
+        function updateSortHeaders() {
+            // Reset all headers
+            const headers = document.querySelectorAll('.data-table th.sortable');
+            headers.forEach(header => {
+                header.classList.remove('sorted-asc', 'sorted-desc');
+            });
+            
+            // Set current sort header
+            if (currentSort.column) {
+                const currentHeader = document.querySelector(`[data-sort="${currentSort.column}"]`);
+                if (currentHeader) {
+                    currentHeader.classList.add(currentSort.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                }
+            }
+        }
+        
+        // Initialize sorting event listeners
+        function initializeSorting() {
+            const sortableHeaders = document.querySelectorAll('.data-table th.sortable');
+            sortableHeaders.forEach(header => {
+                header.addEventListener('click', () => {
+                    const column = header.getAttribute('data-sort');
+                    if (column) {
+                        sortTableData(column);
+                    }
+                });
+            });
+        }
+
+        // Accessibility: Add tabindex, aria-label, and keyboard support to expand buttons
+        function addAccessibilityToExpandButtons() {
+            const expandBtns = document.querySelectorAll('.expand-btn');
+            expandBtns.forEach((btn, idx) => {
+                btn.setAttribute('tabindex', '0');
+                btn.setAttribute('aria-label', 'Expand row details');
+                btn.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        btn.click();
+                    }
+                });
+            });
+        }
+        // Call after table is populated
+        setTimeout(addAccessibilityToExpandButtons, 100);
+
+        // Table scrollable visual cue
+        function updateTableScrollableCue() {
+            const tableContainer = document.querySelector('.table-container');
+            if (!tableContainer) return;
+            if (tableContainer.scrollWidth > tableContainer.clientWidth) {
+                tableContainer.classList.add('scrollable');
+            } else {
+                tableContainer.classList.remove('scrollable');
+            }
+        }
+        window.addEventListener('resize', updateTableScrollableCue);
+        setTimeout(updateTableScrollableCue, 200);
+    </script>
+</body>
+</html>

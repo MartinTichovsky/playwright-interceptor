@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="initial-scale=1, minimum-scale=1, width=device-width" />
+        <script>
+            const navigateXhr = () => {
+                const req = new XMLHttpRequest();
+
+                req.open("GET", "./test", true);
+                req.send();
+                req.onreadystatechange = () => {
+                    if (req.readyState === 4 && window.__navigation_value__) {
+                        console.info(
+                            "go to",
+                            new URL(window.__navigation_value__, window.location).toString()
+                        );
+                        window.location.href = window.__navigation_value__;
+                    }
+                };
+            };
+
+            const navigateFetch = () => {
+                fetch("./test").then((res) => {
+                    if (window.__navigation_value__) {
+                        window.location.href = window.__navigation_value__;
+                    }
+                });
+            };
+        </script>
+    </head>
+
+    <body>
+        <h1 id="navigation-value"></h1>
+
+        <button data-testid="navigate-xhr" onclick="navigateXhr()">Navigate XHR</button>
+        <button data-testid="navigate-fetch" onclick="navigateFetch()">Navigate Fetch</button>
+
+        <script>
+            document.getElementById("navigation-value").innerText =
+                `${window.location.origin}${window.location.pathname}`;
+        </script>
+    </body>
+</html>

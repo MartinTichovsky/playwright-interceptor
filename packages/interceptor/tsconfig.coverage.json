@@ -1,0 +1,9 @@
+{
+    "compilerOptions": {
+        "composite": false,
+        "declaration": false,
+        "inlineSourceMap": true,
+        "inlineSources": true
+    },
+    "extends": "./tsconfig.build.json"
+}

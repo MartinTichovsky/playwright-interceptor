@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en" style="height: 100%; margin: 0;">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="initial-scale=1, minimum-scale=1, width=device-width" />
+    </head>
+
+    <body style="height: 100%; margin: 0;">
+        <script>
+            exports = {}
+        </script>
+
+        <iframe id="dynamicFrame-1" style="position: absolute; top: 0; left: 0; height: 50%; width: 100%; border: none;"></iframe>
+        <iframe id="dynamicFrame-2" style="position: absolute; top: 50%; left: 0; height: 50%; width: 100%; border: none;"></iframe>
+        <script>
+            const searchParams = new URLSearchParams(location.search);
+            const data = JSON.parse(searchParams.get('data'));
+
+            for (const entry of data) {
+                document.getElementById(entry.id).src = './dynamic.html?' + new URLSearchParams({ requests: JSON.stringify(entry.requests) }).toString();
+            }
+        </script>
+    </body>
+</html>

@@ -1,0 +1,48 @@
+{
+    "name": "playwright-interceptor",
+    "version": "1.0.0",
+    "description": "A helper for better Playwright testing; mocking, throttling and waiting for requests with advanced statistics and more.",
+    "author": "Martin Tichovsky",
+    "peerDependencies": {
+        "@playwright/test": ">=1.30.0 <2.0.0"
+    },
+    "devDependencies": {
+        "@playwright/test": "1.61.1"
+    },
+    "files": [
+        "convert/*.d.ts",
+        "convert/*.js",
+        "src/*.d.ts",
+        "src/*.js",
+        "*.d.ts",
+        "*.js"
+    ],
+    "keywords": [
+        "playwright",
+        "intercept",
+        "testing",
+        "requests",
+        "report",
+        "mocking",
+        "throttling",
+        "waiting",
+        "statistics",
+        "performance",
+        "playwright-plugin"
+    ],
+    "license": "MIT",
+    "main": "index.js",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/MartinTichovsky/playwright-interceptor.git"
+    },
+    "scripts": {
+        "build": "npm run clean && tsc --project tsconfig.build.json",
+        "build:coverage": "npm run clean && tsc --project tsconfig.coverage.json",
+        "build:watch": "npm run build -- --watch",
+        "clean": "rimraf tsconfig.build.tsbuildinfo --glob \"**/*.js\" \"**/*.d.ts\" tsconfig.*tsbuildinfo",
+        "lint": "eslint .",
+        "tsc": "tsc --noEmit"
+    },
+    "types": "index.d.ts"
+}

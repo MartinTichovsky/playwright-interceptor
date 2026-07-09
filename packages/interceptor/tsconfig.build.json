@@ -1,0 +1,9 @@
+{
+    "compilerOptions": {
+        "module": "CommonJS",
+        "outDir": ".",
+        "rootDir": "."
+    },
+    "exclude": ["node_modules", "**/*.d.ts", "e2e", "playwright.config.ts"],
+    "extends": "./tsconfig.json"
+}

@@ -1,0 +1,9 @@
+{
+    "compilerOptions": {
+        "paths": {
+            "playwright-interceptor-server": ["../server"],
+            "playwright-interceptor-share": ["../share"]
+        }
+    },
+    "extends": "./tsconfig.json"
+}

@@ -1,0 +1,14 @@
+{
+    "all": false,
+    "reporter": ["text", "lcov", "html"],
+    "reports-dir": "coverage",
+    "exclude-after-remap": false,
+    "include": ["packages/interceptor/**/*.js"],
+    "exclude": [
+        "**/*.d.ts",
+        "**/node_modules/**",
+        "packages/interceptor/convert/**",
+        "packages/interceptor/test.unit*",
+        "packages/interceptor/**/*.spec.*"
+    ]
+}
