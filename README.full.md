@@ -25,6 +25,7 @@ Beyond logging, Playwright Interceptor includes [**Network Report Generation**](
 
 - Playwright Interceptor
     - [Getting started](#getting-started)
+    - [Registering Playwright (monorepos & pinned versions)](#registering-playwright-monorepos--pinned-versions)
     - [Would you just log all requests to a file on fail?](#would-you-just-log-all-requests-to-a-file-on-fail)
     - [Would you like to wait until a request or requests are done?](#would-you-like-to-wait-until-a-request-or-requests-are-done)
     - [Fixtures](#fixtures)
@@ -135,6 +136,8 @@ Install the package using `yarn` or `npm`:
 npm install --save-dev playwright-interceptor
 ```
 
+`@playwright/test` is a peer dependency (supported range `>=1.30.0 <2.0.0`); make sure it is installed in your project alongside the interceptor.
+
 Import `test` and `expect` from `playwright-interceptor` instead of `@playwright/test`. The `interceptor`, `wsInterceptor` and `watchTheConsole` fixtures are then available in every test and are started automatically:
 
 ```ts
@@ -147,6 +150,39 @@ test("captures requests", async ({ page, interceptor }) => {
 
     expect(interceptor.callStack.length).toBeGreaterThan(0);
 });
+```
+
+For a single-version project that is all you need — the fixtures bind to the `@playwright/test` you already have installed.
+
+## Registering Playwright (monorepos & pinned versions)
+
+The `test` object exported by `playwright-interceptor` must belong to the **same** `@playwright/test` instance that the runner uses to execute your specs. When more than one copy of `@playwright/test` is present — for example in a monorepo where a version is hoisted to the root while a package pins its own, or when the same specs are run against several Playwright versions at once — Playwright rejects the shared `test.describe(...)` calls with:
+
+> Playwright Test did not expect test.describe() to be called here
+
+To resolve this, register your pinned `@playwright/test` from your `playwright.config.ts` **before any spec is loaded**. Import from `playwright-interceptor/register`, which only pulls in the fixtures module (it does not touch `@playwright/test` at load time), so it can run before the specs import the package index:
+
+```ts
+// playwright.config.ts
+import { expect, test } from "@playwright/test";
+import { registerPlaywright } from "playwright-interceptor/register";
+
+registerPlaywright({ expect, test });
+
+// ...the rest of your config
+```
+
+After registration, the `test` and `expect` imported from `playwright-interceptor` in your specs use the exact Playwright instance you registered.
+
+### Extending an existing `test`
+
+If your project already has its own extended `test` fixture, build the interceptor fixtures on top of it with `extendTest`:
+
+```ts
+import { test as base } from "@playwright/test";
+import { extendTest } from "playwright-interceptor";
+
+export const test = extendTest(base);
 ```
 
 ## Would you just log all requests to a file on fail?

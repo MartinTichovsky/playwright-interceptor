@@ -34,11 +34,50 @@ It runs entirely in Node and is exposed through Playwright **fixtures** — no c
 npm install --save-dev playwright-interceptor
 ```
 
+`@playwright/test` is a peer dependency (supported range `>=1.30.0 <2.0.0`), so make sure it is installed in your project alongside the interceptor.
+
 Import `test` and `expect` from `playwright-interceptor` instead of `@playwright/test`. The `interceptor`, `wsInterceptor` and `watchTheConsole` fixtures are then available and started automatically:
 
 ```ts
 import { expect, test } from "playwright-interceptor";
 ```
+
+For most projects that is all you need — the fixtures bind to the `@playwright/test` you already have installed.
+
+## Registering Playwright (monorepos & pinned versions)
+
+The `test` object exported by `playwright-interceptor` must belong to the **same** `@playwright/test` instance that the runner uses to execute your specs. In a single-version project this happens automatically. But when more than one copy of `@playwright/test` is present — for example in a monorepo where a version is hoisted to the root while a package pins its own, or when you run the same specs against several Playwright versions — Playwright rejects the shared `test.describe(...)` calls with:
+
+> Playwright Test did not expect test.describe() to be called here
+
+To fix this, register your pinned `@playwright/test` from your `playwright.config.ts` **before any spec is loaded**. Import from `playwright-interceptor/register`, which pulls in only the fixtures (it does not touch `@playwright/test` at load time), so the ordering is guaranteed:
+
+```ts
+// playwright.config.ts
+import { expect, test } from "@playwright/test";
+import { registerPlaywright } from "playwright-interceptor/register";
+
+registerPlaywright({ expect, test });
+
+// ...the rest of your config
+```
+
+After this, the `test` and `expect` imported from `playwright-interceptor` in your specs will use the exact Playwright instance you registered.
+
+### Extending an existing `test`
+
+If your project already has its own extended `test` fixture, build the interceptor fixtures on top of it with `extendTest` instead:
+
+```ts
+import { test as base } from "@playwright/test";
+import { extendTest } from "playwright-interceptor";
+
+export const test = extendTest(base);
+```
+
+### Configuring the default request timeout
+
+The default timeout used by `waitUntilRequestIsDone` is `10000` ms. Set the `INTERCEPTOR_REQUEST_TIMEOUT` environment variable to change it globally, or override it per call with the `timeout` option.
 
 ## Common Use Cases
 
