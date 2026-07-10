@@ -8,7 +8,14 @@ import * as ts from "typescript";
 
 import { bigDataGenerator } from "./bigDataGenerator";
 import { getExampleResponse } from "./exampleResponse";
-import { COUNTER_SERVER_URL, HOST, I_TEST_ID_HEADER, SERVER_URL } from "./resources/constants";
+import {
+    COUNTER_SERVER_URL,
+    HOST,
+    I_TEST_ID_HEADER,
+    PORT,
+    SECOND_PORT,
+    SERVER_URL
+} from "./resources/constants";
 import { CookiesRequest, TestingEndpointRequest, WsEndpointRequest } from "./server.types";
 import {
     executeAutoResponse,
@@ -23,8 +30,8 @@ import { RequestServerLog, WSMessage } from "./types";
 const app = expressWs(express()).app;
 const secondApp = expressWs(express()).app;
 const upload = multer();
-const port = 3000;
-const secondPort = 3001;
+const port = PORT;
+const secondPort = SECOND_PORT;
 
 const cypressInterceptorString = "playwright-interceptor";
 const resourcesPath = "/public/resources/";

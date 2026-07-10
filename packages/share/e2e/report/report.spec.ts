@@ -39,6 +39,7 @@ import {
     ReportTestId,
     test
 } from "playwright-interceptor";
+import { HOST } from "playwright-interceptor-server/src/resources/constants";
 
 import { byDataTestId } from "../../src/selectors";
 import { checkBarColor } from "./checkBarColor";
@@ -167,9 +168,9 @@ test.describe("Report", () => {
     test.describe("createNetworkReportFromFile", () => {
         test("Should create a report from a file", async ({ page }) => {
             const statsPath = writeStatsFile(test.info().outputDir, "createFromFile.stats.json", [
-                statsJsonEntry("http://localhost:3000/api/test1", 200),
-                statsJsonEntry("http://localhost:3000/api/test2", 1000),
-                statsJsonEntry("http://localhost:3000/api/test3", 300)
+                statsJsonEntry(`http://${HOST}/api/test1`, 200),
+                statsJsonEntry(`http://${HOST}/api/test2`, 1000),
+                statsJsonEntry(`http://${HOST}/api/test3`, 300)
             ]);
 
             const outputFilePath = createNetworkReportFromFile(statsPath, {
@@ -186,8 +187,8 @@ test.describe("Report", () => {
 
     test.describe("generateReport", () => {
         test("Should filter the entries by url", async ({ page }) => {
-            const apiTest1 = new URL("http://localhost:3000/api/test1");
-            const apiTest2 = new URL("http://localhost:3000/api/test2");
+            const apiTest1 = new URL(`http://${HOST}/api/test1`);
+            const apiTest2 = new URL(`http://${HOST}/api/test2`);
 
             const fileName = "report-filter-by-url.html";
             const outputFilePath = path.join(fixturesFolder, fileName);
@@ -207,7 +208,7 @@ test.describe("Report", () => {
 
         test("Should load report from file", async ({ page }) => {
             const statsPath = writeStatsFile(test.info().outputDir, "loadFromFile.stats.json", [
-                statsJsonEntry("http://localhost:3000/api/test1", 1000)
+                statsJsonEntry(`http://${HOST}/api/test1`, 1000)
             ]);
 
             const fileName = "report-from-file.html";
@@ -222,7 +223,7 @@ test.describe("Report", () => {
 
         test("Should filter out the entries with no duration", async ({ page }) => {
             const statsPath = writeStatsFile(test.info().outputDir, "noDuration.stats.json", [
-                statsJsonEntry("http://localhost:3000/api/test1")
+                statsJsonEntry(`http://${HOST}/api/test1`)
             ]);
 
             const fileName = "report-from-file-with-no-duration.html";
@@ -237,7 +238,7 @@ test.describe("Report", () => {
 
         test("Should not fail if the response is not defined", async ({ page }) => {
             const statsPath = writeStatsFile(test.info().outputDir, "noResponse.stats.json", [
-                statsJsonEntry("http://localhost:3000/api/test1", undefined, false)
+                statsJsonEntry(`http://${HOST}/api/test1`, undefined, false)
             ]);
 
             const fileName = "report-from-file-with-no-response.html";
@@ -251,9 +252,9 @@ test.describe("Report", () => {
         });
 
         test("Should filter the entries by url and highlight the slow ones", async ({ page }) => {
-            const apiTest1 = new URL("http://localhost:3000/api/test-1");
-            const apiTest2 = new URL("http://localhost:3000/api/test-2");
-            const apiTest3 = new URL("http://localhost:3000/api/test-3");
+            const apiTest1 = new URL(`http://${HOST}/api/test-1`);
+            const apiTest2 = new URL(`http://${HOST}/api/test-2`);
+            const apiTest3 = new URL(`http://${HOST}/api/test-3`);
 
             const fileName = "report-with-highlight.html";
             const outputFilePath = path.join(fixturesFolder, fileName);
@@ -361,7 +362,7 @@ test.describe("Report", () => {
             // a valid stats file -> produces a report
             fs.writeFileSync(
                 path.join(statsDir, "good.stats.json"),
-                JSON.stringify([statsJsonEntry("http://localhost:3000/api/test1", 200)]),
+                JSON.stringify([statsJsonEntry(`http://${HOST}/api/test1`, 200)]),
                 "utf8"
             );
             // an invalid stats file -> throws while parsing and is swallowed by the folder helper
@@ -401,25 +402,19 @@ test.describe("Report", () => {
         };
 
         test("includes the full body when the option is true", () => {
-            const html = generate(
-                [bodyEntry(new URL("http://localhost:3000/a"), longBody, longBody, 1)],
-                {
-                    includeRequestBody: true,
-                    includeResponseBody: true
-                }
-            );
+            const html = generate([bodyEntry(new URL(`http://${HOST}/a`), longBody, longBody, 1)], {
+                includeRequestBody: true,
+                includeResponseBody: true
+            });
 
             // the full (untruncated) body is present
             expect(html.includes(longBody)).toBe(true);
         });
 
         test("includes the full body when the option function returns true", () => {
-            const html = generate(
-                [bodyEntry(new URL("http://localhost:3000/b"), longBody, "", 1)],
-                {
-                    includeRequestBody: () => true
-                }
-            );
+            const html = generate([bodyEntry(new URL(`http://${HOST}/b`), longBody, "", 1)], {
+                includeRequestBody: () => true
+            });
 
             expect(html.includes(longBody)).toBe(true);
         });
@@ -427,8 +422,8 @@ test.describe("Report", () => {
         test("truncates a long body and keeps a short body when the option function returns false", () => {
             const html = generate(
                 [
-                    bodyEntry(new URL("http://localhost:3000/c-long"), longBody, "", 1),
-                    bodyEntry(new URL("http://localhost:3000/c-short"), shortBody, "", 2)
+                    bodyEntry(new URL(`http://${HOST}/c-long`), longBody, "", 1),
+                    bodyEntry(new URL(`http://${HOST}/c-short`), shortBody, "", 2)
                 ],
                 { includeRequestBody: () => false }
             );
@@ -440,10 +435,7 @@ test.describe("Report", () => {
         });
 
         test("truncates a long body by default when no option is provided", () => {
-            const html = generate(
-                [bodyEntry(new URL("http://localhost:3000/d"), longBody, "", 1)],
-                {}
-            );
+            const html = generate([bodyEntry(new URL(`http://${HOST}/d`), longBody, "", 1)], {});
 
             expect(html.includes(longBody)).toBe(false);
             expect(html.includes(longBody.slice(0, 1000))).toBe(true);

@@ -927,3 +927,49 @@ test.describe("Websocket", () => {
         expect(sendStats[sendStats.length - 1].data).toEqual(sendData2);
     });
 });
+
+test.describe("Websocket - matcher evaluation coverage", () => {
+    /**
+     * Playwright's `page.on("websocket")` never exposes a close code/reason or the socket
+     * sub-protocols, so a matcher that uses them can never match a real captured action. Calling
+     * `getStats` / `getLastRequest` with these matchers still runs the matcher callback over every
+     * captured action, which is what exercises the close-code/reason and protocols matching
+     * branches (and, through them, the `isNonNullableObject` helper).
+     */
+    test("evaluates the close code/reason and protocols matchers", async ({
+        page,
+        wsInterceptor
+    }) => {
+        const config: DynamicRequest[] = [
+            {
+                delay: 100,
+                path: "webSocket-matcher",
+                sendQueue: [{ data: "hello" }],
+                type: "websocket"
+            }
+        ];
+
+        await page.goto(getDynamicUrl(config));
+
+        await wsInterceptor.waitUntilWebsocketAction({ type: "create" });
+
+        // navigating away closes the socket, so an `onclose` action (whose `data` is an object) is
+        // also captured - that lets the close matcher evaluate the `"reason"/"code" in data` checks
+        await page.goto("/");
+
+        await wsInterceptor.waitUntilWebsocketAction({ type: "onclose" });
+
+        expect(wsInterceptor.getStats().length).toBeGreaterThan(0);
+
+        // close matcher: both the `reason` and the `code` branch are evaluated
+        expect(wsInterceptor.getStats({ type: "onclose", code: 1000, reason: "bye" })).toHaveLength(
+            0
+        );
+        expect(wsInterceptor.getStats({ type: "close", reason: "bye" })).toHaveLength(0);
+        expect(wsInterceptor.getLastRequest({ type: "onclose", code: 1000 })).toBeUndefined();
+
+        // protocols matcher: a single value and an array both run the protocols branch
+        expect(wsInterceptor.getStats({ protocols: "soap" })).toHaveLength(0);
+        expect(wsInterceptor.getStats({ protocols: ["amqp", "xmpp"] })).toHaveLength(0);
+    });
+});

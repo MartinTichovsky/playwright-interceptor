@@ -1,3 +1,7 @@
+[![NPM](https://img.shields.io/npm/v/playwright-interceptor.svg)](https://www.npmjs.com/package/playwright-interceptor)
+[![Build Status](https://github.com/MartinTichovsky/playwright-interceptor/workflows/CI/badge.svg)](https://github.com/MartinTichovsky/playwright-interceptor/actions?workflow=CI)
+[![Coverage Status](https://coveralls.io/repos/github/MartinTichovsky/playwright-interceptor/badge.svg?branch=main)](https://coveralls.io/github/MartinTichovsky/playwright-interceptor?branch=main)
+
 # Playwright Interceptor - Quick Start Guide
 
 **For Playwright developers who want better request handling and debugging.**

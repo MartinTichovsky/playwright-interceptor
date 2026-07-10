@@ -23,10 +23,11 @@
 
 import type { Page } from "@playwright/test";
 import { expect, test } from "playwright-interceptor";
+import { SECOND_PORT } from "playwright-interceptor-server/src/resources/constants";
 
 import { wait } from "../src/utils";
 
-const BASE_URL = "http://localhost:3001";
+const BASE_URL = `http://localhost:${SECOND_PORT}`;
 
 interface NavigationRef {
     url: URL;

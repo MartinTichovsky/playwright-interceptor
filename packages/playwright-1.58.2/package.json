@@ -1,0 +1,16 @@
+{
+    "name": "playwright-interceptor-tests-1.58.2",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "lint": "eslint .",
+        "pretest": "npm run build -w playwright-interceptor",
+        "pw:install": "playwright install",
+        "test": "playwright test",
+        "test:headed": "playwright test --headed",
+        "tsc": "tsc --noEmit"
+    },
+    "devDependencies": {
+        "@playwright/test": "1.58.2"
+    }
+}

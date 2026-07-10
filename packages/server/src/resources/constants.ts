@@ -1,7 +1,18 @@
 export const crossDomainFetch = "https://www.gstatic.com/charts/loader.js";
 export const I_TEST_ID_HEADER = "X-Test-Id";
-export const HOST = "localhost:3000";
-export const WS_HOST = "ws://localhost:3000";
+
+/**
+ * The port of the main server. Change this value to update the port everywhere it is used
+ * (server, host, websocket host, Playwright config, ...).
+ */
+export const PORT = 4000;
+/**
+ * The port of the second server (serves `navigation.html` for every route).
+ */
+export const SECOND_PORT = 4001;
+
+export const HOST = `localhost:${PORT}`;
+export const WS_HOST = `ws://localhost:${PORT}`;
 
 export enum SERVER_URL {
     AutoResponseFormData = "auto-response-form-data",

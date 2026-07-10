@@ -1,4 +1,22 @@
-export { expect, InterceptorFixtures, test } from "./fixtures";
+import { getExpect, getTest } from "./fixtures";
+
+/**
+ * A `@playwright/test` `test` object extended with the `interceptor`, `watchTheConsole` and
+ * `wsInterceptor` fixtures.
+ *
+ * @example
+ * import { test, expect } from "playwright-interceptor";
+ *
+ * test("captures requests", async ({ page, interceptor }) => {
+ *     await page.goto("/");
+ *     await interceptor.waitUntilRequestIsDone();
+ *     expect(interceptor.callStack.length).toBeGreaterThan(0);
+ * });
+ */
+export const test = getTest();
+export const expect = getExpect();
+
+export { extendTest, InterceptorFixtures, registerPlaywright } from "./fixtures";
 export { Interceptor, InterceptorConstructorOptions } from "./Interceptor";
 export * from "./Interceptor.types";
 export * from "./report";

@@ -9,7 +9,7 @@
  *   `packages/share/cypress.config.ts`) called `createNetworkReportFromFile` /
  *   `createNetworkReportFromFolder` in Node. Here we call those library functions directly in the
  *   test process and write the HTML straight into the server's statically-served `fixtures` folder,
- *   then open it with `page.goto("/fixtures/<name>.html")` (baseURL is http://localhost:3000).
+ *   then open it with `page.goto("/fixtures/<name>.html")` (baseURL is the server `HOST`).
  * - `cy.task("clearFixtures")` (which wiped the whole shared fixtures folder) is dropped: each test
  *   writes its own uniquely-named report so there is no need to remove other specs' fixtures.
  * - `validateReportTemplate()` (Cypress command chain) -> `await validateReportTemplate(page)`.

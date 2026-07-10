@@ -61,7 +61,7 @@ const makeRequests = async (page: Page): Promise<RequestResult> =>
 
         const response = "pong";
 
-        const ws = new window.WebSocket("ws://localhost:3000/ping-test");
+        const ws = new window.WebSocket(`ws://${host}/ping-test`);
 
         let wsResponseCalled = false;
 
