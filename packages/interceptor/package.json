@@ -1,6 +1,6 @@
 {
     "name": "playwright-interceptor",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "A helper for better Playwright testing; mocking, throttling and waiting for requests with advanced statistics and more.",
     "author": "Martin Tichovsky",
     "peerDependencies": {
