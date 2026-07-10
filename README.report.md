@@ -45,7 +45,7 @@ The **Network Report** feature generates detailed HTML reports with visualizatio
 
 ### Basic Usage in a Playwright Test
 
-Import the report function. Unlike the Cypress version (which read from `cy.interceptor()`), the Playwright `createNetworkReport` takes the `interceptor` fixture instance directly:
+Import the report function. `createNetworkReport` takes the `interceptor` fixture instance directly:
 
 ```ts
 import { createNetworkReport } from "playwright-interceptor/report";
@@ -378,14 +378,14 @@ test.afterEach(async ({ interceptor }, testInfo) => {
 **Report not generated:**
 - Ensure `outputDir` exists or can be created
 - Verify you have write permissions to the output directory
-- Check that Cypress Interceptor is properly imported
+- Check that Playwright Interceptor is properly imported
 
 **Empty reports:**
-- Make sure Cypress Interceptor is capturing requests
+- Make sure Playwright Interceptor is capturing requests
 - Verify that network requests occur during your test execution
 
 **Node.js context errors:**
-- `createNetworkReportFromFile` and `createNetworkReportFromFolder` must be called from Node.js context (Cypress tasks, not test code)
+- `createNetworkReportFromFile` and `createNetworkReportFromFolder` read from disk and write HTML using Node's `fs`, so call them from the Node test process (not from inside `page.evaluate`)
 
 **Performance threshold not working:**
 - Ensure `highDuration` is set as a number (in milliseconds)

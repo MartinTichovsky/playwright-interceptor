@@ -72,7 +72,7 @@ const hasContentType = (headers: Record<string, string>) =>
  *
  * Playwright intercepts at the network level, so the body is already serialized. For url-encoded
  * bodies we return a normalized JSON string (so the value matches the request object), which mirrors
- * how the Cypress interceptor stores the body. Other formats are returned as the raw post data.
+ * how the interceptor stores the body. Other formats are returned as the raw post data.
  */
 const normalizeRequestBody = (request: PlaywrightRequest): string => {
     const raw = request.postData();
@@ -869,9 +869,7 @@ export class Interceptor {
     ): Promise<this>;
     public async waitUntilRequestIsDone<T>(
         actionOrStringMatcherOrOptions?:
-            | (() => Promise<T> | T)
-            | StringMatcher
-            | WaitUntilRequestOptions,
+            (() => Promise<T> | T) | StringMatcher | WaitUntilRequestOptions,
         stringMatcherOrOptionsOrErrorMessage?: StringMatcher | WaitUntilRequestOptions | string,
         errorMessage?: string
     ): Promise<T | this> {
@@ -882,9 +880,7 @@ export class Interceptor {
 
             await this.waitUntilRequestIsDone_withWait(
                 stringMatcherOrOptionsOrErrorMessage as
-                    | StringMatcher
-                    | WaitUntilRequestOptions
-                    | undefined,
+                    StringMatcher | WaitUntilRequestOptions | undefined,
                 performance.now(),
                 errorMessage
             );

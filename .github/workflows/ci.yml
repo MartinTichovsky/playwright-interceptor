@@ -54,7 +54,7 @@ jobs:
             - name: Coveralls
               uses: coverallsapp/github-action@main
               with:
-                  base-path: packages/cypress-latest
+                  file: coverage/lcov.info
                   github-token: ${{ secrets.GITHUB_TOKEN }}
                   git-branch: ${{ github.ref_name }}
                   fail-on-error: false
